@@ -18,33 +18,28 @@
 
 package org.apache.wayang.postgres.operators;
 
-import org.apache.wayang.basic.data.Record;
-import org.apache.wayang.basic.operators.FilterOperator;
-import org.apache.wayang.basic.operators.JoinOperator;
-import org.apache.wayang.core.function.TransformationDescriptor;
-import org.apache.wayang.jdbc.operators.JdbcJoinOperator;
+import java.sql.Connection;
 
+import org.apache.wayang.basic.operators.JoinOperator;
+import org.apache.wayang.core.impl.ISqlImpl;
+import org.apache.wayang.jdbc.compiler.FunctionCompiler;
+import org.apache.wayang.jdbc.operators.JdbcJoinOperator;
 
 /**
  * PostgreSQL implementation of the {@link JoinOperator}.
  */
-public class PostgresJoinOperator<KeyType> extends JdbcJoinOperator<KeyType> implements PostgresExecutionOperator {
+public class PostgresJoinOperator extends JdbcJoinOperator implements PostgresExecutionOperator {
 
     /**
      * Creates a new instance.
      */
-    public PostgresJoinOperator(
-        TransformationDescriptor<Record, KeyType> keyDescriptor0,
-        TransformationDescriptor<Record, KeyType> keyDescriptor1) {
-        super(keyDescriptor0,keyDescriptor1);
-    }
-
-    public PostgresJoinOperator(JoinOperator<Record, Record, KeyType> that) {
-        super(that);
+    public PostgresJoinOperator(final ISqlImpl keyDescriptor0,
+            final ISqlImpl keyDescriptor1) {
+        super(keyDescriptor0, keyDescriptor1);
     }
 
     @Override
-    protected PostgresJoinOperator createCopy() {
-        return new PostgresJoinOperator<KeyType>(this);
+    public String createSqlClause(final Connection connection, final FunctionCompiler compiler) {
+        throw new UnsupportedOperationException("Unimplemented method 'createSqlClause'");
     }
 }

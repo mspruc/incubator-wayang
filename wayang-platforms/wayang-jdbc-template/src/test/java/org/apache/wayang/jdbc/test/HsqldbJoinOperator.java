@@ -18,21 +18,20 @@
 
 package org.apache.wayang.jdbc.test;
 
-import org.apache.wayang.core.platform.ChannelDescriptor;
-import org.apache.wayang.basic.data.Record;
-import org.apache.wayang.jdbc.test.HsqldbPlatform;
+import java.sql.Connection;
+
+import org.apache.wayang.jdbc.compiler.FunctionCompiler;
 import org.apache.wayang.jdbc.operators.JdbcJoinOperator;
-import org.apache.wayang.core.types.DataSetType;
-import org.apache.wayang.core.function.TransformationDescriptor;
+import org.apache.wayang.core.impl.ISqlImpl;
 
 /**
  * Test implementation of {@link JdbcJoinOperator}.
  */
-public class HsqldbJoinOperator<KeyType> extends JdbcJoinOperator<KeyType> {
+public class HsqldbJoinOperator extends JdbcJoinOperator {
 
     public HsqldbJoinOperator(
-        TransformationDescriptor<Record, KeyType> keyDescriptor0,
-        TransformationDescriptor<Record, KeyType> keyDescriptor1
+        ISqlImpl keyDescriptor0,
+        ISqlImpl keyDescriptor1
     ) {
         super(keyDescriptor0,keyDescriptor1);
     }
@@ -41,5 +40,12 @@ public class HsqldbJoinOperator<KeyType> extends JdbcJoinOperator<KeyType> {
     public HsqldbPlatform getPlatform() {
         return HsqldbPlatform.getInstance();
     }
+
+    @Override
+    public String createSqlClause(Connection connection, FunctionCompiler compiler) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'createSqlClause'");
+    }
+
 
 }

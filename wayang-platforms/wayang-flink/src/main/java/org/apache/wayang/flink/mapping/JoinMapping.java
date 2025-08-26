@@ -18,6 +18,10 @@
 
 package org.apache.wayang.flink.mapping;
 
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.Collections;
+
 import org.apache.wayang.basic.operators.JoinOperator;
 import org.apache.wayang.core.mapping.Mapping;
 import org.apache.wayang.core.mapping.OperatorPattern;
@@ -28,33 +32,29 @@ import org.apache.wayang.core.types.DataSetType;
 import org.apache.wayang.flink.operators.FlinkJoinOperator;
 import org.apache.wayang.flink.platform.FlinkPlatform;
 
-import java.util.Collection;
-import java.util.Collections;
-
 /**
  * Mapping from {@link JoinOperator} to {@link FlinkJoinOperator}.
  */
-@SuppressWarnings("unchecked")
-public class JoinMapping implements Mapping{
+public class JoinMapping implements Mapping {
     @Override
     public Collection<PlanTransformation> getTransformations() {
         return Collections.singleton(new PlanTransformation(
                 this.createSubplanPattern(),
                 this.createReplacementSubplanFactory(),
-                FlinkPlatform.getInstance()
-        ));
+                FlinkPlatform.getInstance()));
     }
 
     private SubplanPattern createSubplanPattern() {
-        final OperatorPattern operatorPattern = new OperatorPattern<>(
-                "join", new JoinOperator<>(null, null, DataSetType.none(), DataSetType.none()), false
-        );
+        final OperatorPattern<?> operatorPattern = new OperatorPattern<>(
+                "join", new JoinOperator<>(null, null, 
+                        DataSetType.createDefault(Serializable.class),
+                        DataSetType.createDefault(Serializable.class)),
+                false);
         return SubplanPattern.createSingleton(operatorPattern);
     }
 
     private ReplacementSubplanFactory createReplacementSubplanFactory() {
-        return new ReplacementSubplanFactory.OfSingleOperators<JoinOperator<Object, Object, Object>>(
-                (matchedOperator, epoch) -> new FlinkJoinOperator<>(matchedOperator).at(epoch)
-        );
+        return new ReplacementSubplanFactory.OfSingleOperators<JoinOperator<Serializable, Serializable, Serializable>>(
+                (matchedOperator, epoch) -> new FlinkJoinOperator<>(matchedOperator).at(epoch));
     }
 }

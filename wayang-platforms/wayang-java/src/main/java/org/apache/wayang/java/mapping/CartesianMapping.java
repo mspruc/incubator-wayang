@@ -18,6 +18,10 @@
 
 package org.apache.wayang.java.mapping;
 
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.Collections;
+
 import org.apache.wayang.basic.operators.CartesianOperator;
 import org.apache.wayang.core.mapping.Mapping;
 import org.apache.wayang.core.mapping.OperatorPattern;
@@ -27,9 +31,6 @@ import org.apache.wayang.core.mapping.SubplanPattern;
 import org.apache.wayang.core.types.DataSetType;
 import org.apache.wayang.java.operators.JavaCartesianOperator;
 import org.apache.wayang.java.platform.JavaPlatform;
-
-import java.util.Collection;
-import java.util.Collections;
 
 /**
  * Mapping from {@link CartesianOperator} to {@link JavaCartesianOperator}.
@@ -45,13 +46,14 @@ public class CartesianMapping implements Mapping {
 
     private SubplanPattern createSubplanPattern() {
         final OperatorPattern<CartesianOperator<?, ?>> operatorPattern = new OperatorPattern<>(
-                "cartesian", new CartesianOperator<>(DataSetType.none(), DataSetType.none()), false);
+                "cartesian", new CartesianOperator<>(DataSetType.createDefault(Serializable.class),
+                        DataSetType.createDefault(Serializable.class)),
+                false);
         return SubplanPattern.createSingleton(operatorPattern);
     }
 
     private ReplacementSubplanFactory createReplacementSubplanFactory() {
         return new ReplacementSubplanFactory.OfSingleOperators<CartesianOperator<?, ?>>(
-                (matchedOperator, epoch) -> new JavaCartesianOperator<>(matchedOperator).at(epoch)
-        );
+                (matchedOperator, epoch) -> new JavaCartesianOperator<>(matchedOperator).at(epoch));
     }
 }

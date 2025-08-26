@@ -18,27 +18,28 @@
 
 package org.apache.wayang.basic.operators;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.wayang.basic.model.Model;
 import org.apache.wayang.core.plan.wayangplan.BinaryToUnaryOperator;
 import org.apache.wayang.core.types.DataSetType;
 import org.apache.wayang.core.util.TypeConverter;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+
 public class PredictOperator<X, Y> extends BinaryToUnaryOperator<Model, X, Y> {
 
-    public PredictOperator(DataSetType<X> inType, DataSetType<Y> outType) {
+    public PredictOperator(final DataSetType<X> inType, final DataSetType<Y> outType) {
         super(DataSetType.createDefaultUnchecked(Model.class), inType, outType, false);
     }
 
-    public PredictOperator(Class<X> inType, Class<Y> outType) {
+    public PredictOperator(final Class<X> inType, final Class<Y> outType) {
         this(DataSetType.createDefault(inType), DataSetType.createDefault(outType));
     }
 
-    public PredictOperator(TypeReference<X> inType, TypeReference<Y> outType) {
+    public PredictOperator(final TypeReference<X> inType, final TypeReference<Y> outType) {
         this(TypeConverter.convert(inType), TypeConverter.convert(outType));
     }
 
-    public PredictOperator(PredictOperator<X, Y> that) {
+    public PredictOperator(final PredictOperator<X, Y> that) {
         super(that);
     }
 }

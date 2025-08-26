@@ -1,0 +1,1 @@
+select * from fs.exampleInt where exampleInt.NAMEB > 5999999;

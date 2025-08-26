@@ -29,6 +29,7 @@ import org.apache.wayang.core.plan.wayangplan.PlanTraversal;
 import org.apache.wayang.core.util.OneTimeExecutable;
 import org.apache.wayang.core.util.WayangCollections;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -45,7 +46,7 @@ import java.util.stream.Stream;
 /**
  * {@link CardinalityEstimator} that subsumes a DAG of operators, each one providing a local {@link CardinalityEstimator}.
  */
-public class CardinalityEstimationTraversal {
+public class CardinalityEstimationTraversal implements Serializable {
 
     private final Collection<Activation> inputActivations;
 

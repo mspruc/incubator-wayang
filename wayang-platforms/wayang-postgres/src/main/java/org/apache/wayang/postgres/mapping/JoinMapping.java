@@ -18,9 +18,13 @@
 
 package org.apache.wayang.postgres.mapping;
 
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.Collections;
+
 import org.apache.wayang.basic.data.Record;
 import org.apache.wayang.basic.operators.JoinOperator;
-import org.apache.wayang.core.function.TransformationDescriptor;
+import org.apache.wayang.core.impl.ISqlImpl;
 import org.apache.wayang.core.mapping.Mapping;
 import org.apache.wayang.core.mapping.OperatorPattern;
 import org.apache.wayang.core.mapping.PlanTransformation;
@@ -30,13 +34,9 @@ import org.apache.wayang.core.types.DataSetType;
 import org.apache.wayang.postgres.operators.PostgresJoinOperator;
 import org.apache.wayang.postgres.platform.PostgresPlatform;
 
-import java.util.Collection;
-import java.util.Collections;
-
 /**
  * Mapping from {@link JoinOperator} to {@link PostgresJoinOperator}.
  */
-@SuppressWarnings("unchecked")
 public class JoinMapping implements Mapping {
 
     @Override
@@ -44,33 +44,26 @@ public class JoinMapping implements Mapping {
         return Collections.singleton(new PlanTransformation(
                 this.createSubplanPattern(),
                 this.createReplacementSubplanFactory(),
-                PostgresPlatform.getInstance()
-        ));
+                PostgresPlatform.getInstance()));
     }
 
     private SubplanPattern createSubplanPattern() {
-        OperatorPattern<JoinOperator<Record, Record, Object>> operatorPattern = new OperatorPattern<>(
+        final OperatorPattern<JoinOperator<Record, Record, Serializable>> operatorPattern = new OperatorPattern<>(
                 "join",
-                new JoinOperator<Record, Record, Object>(
+                new JoinOperator<>(
                         null,
                         null,
                         DataSetType.createDefault(Record.class),
-                        DataSetType.createDefault(Record.class)
-                ),
-                false
-        )
-            .withAdditionalTest(op -> op.getKeyDescriptor0() instanceof TransformationDescriptor)
-            .withAdditionalTest(op -> op.getKeyDescriptor1() instanceof TransformationDescriptor)
-            .withAdditionalTest(op -> op.getKeyDescriptor0().getSqlImplementation() != null)
-            .withAdditionalTest(op -> op.getKeyDescriptor1().getSqlImplementation() != null);
+                        DataSetType.createDefault(Record.class)),
+                false)
+                .withAdditionalTest(op -> op.getKeyDescriptor0() instanceof ISqlImpl)
+                .withAdditionalTest(op -> op.getKeyDescriptor1() instanceof ISqlImpl);
         return SubplanPattern.createSingleton(operatorPattern);
     }
 
     private ReplacementSubplanFactory createReplacementSubplanFactory() {
-        return new ReplacementSubplanFactory.OfSingleOperators<JoinOperator<Record, Record, Object>>(
-                (matchedOperator, epoch) -> {
-                    return new PostgresJoinOperator<Object>(matchedOperator).at(epoch);
-                }
-        );
+        return new ReplacementSubplanFactory.OfSingleOperators<JoinOperator<Record, Record, Serializable>>(
+                (matchedOperator, epoch) -> new PostgresJoinOperator((ISqlImpl) matchedOperator.getKeyDescriptor0(), (ISqlImpl) matchedOperator.getKeyDescriptor1())
+                        .at(epoch));
     }
 }

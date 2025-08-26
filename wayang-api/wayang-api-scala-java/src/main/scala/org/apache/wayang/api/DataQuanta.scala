@@ -36,7 +36,6 @@ import org.apache.wayang.core.optimizer.costs.LoadProfileEstimator
 import org.apache.wayang.core.plan.wayangplan._
 import org.apache.wayang.core.platform.Platform
 import org.apache.wayang.core.util.{Tuple => WayangTuple}
-import org.apache.wayang.basic.data.{Tuple2 => WayangTuple2}
 import org.apache.wayang.basic.model.{DLModel, LogisticRegressionModel,DecisionTreeRegressionModel};
 import org.apache.wayang.commons.util.profiledb.model.Experiment
 import com.google.protobuf.ByteString;
@@ -54,7 +53,7 @@ import scala.reflect._
   * @param ev$1        the data type of the elements in this instance
   * @param planBuilder keeps track of the [[WayangPlan]] being build
   */
-class DataQuanta[Out: ClassTag](val operator: ElementaryOperator, outputIndex: Int = 0)(implicit val planBuilder: PlanBuilder) {
+class DataQuanta[Out :> Serializable : ClassTag](val operator: ElementaryOperator, outputIndex: Int = 0)(implicit val planBuilder: PlanBuilder) extends Serializable {
 
   Validate.isTrue(operator.getNumOutputs > outputIndex)
 
@@ -574,11 +573,11 @@ class DataQuanta[Out: ClassTag](val operator: ElementaryOperator, outputIndex: I
     * @param thatKeyUdf UDF to extract keys from data quanta from `that` instance
     * @return a new instance representing the [[JoinOperator]]'s output
     */
-  def join[ThatOut: ClassTag, Key: ClassTag]
+  def join[ThatOut <: Serializable : ClassTag, Key <: Serializable : ClassTag]
   (thisKeyUdf: Out => Key,
    that: DataQuanta[ThatOut],
    thatKeyUdf: ThatOut => Key)
-  : DataQuanta[WayangTuple2[Out, ThatOut]] =
+  : DataQuanta[WayangTuple[Out, ThatOut]] =
     joinJava(toSerializableFunction(thisKeyUdf), that, toSerializableFunction(thatKeyUdf))
 
   /**
@@ -589,11 +588,11 @@ class DataQuanta[Out: ClassTag](val operator: ElementaryOperator, outputIndex: I
     * @param thatKeyUdf UDF to extract keys from data quanta from `that` instance
     * @return a new instance representing the [[JoinOperator]]'s output
     */
-  def joinJava[ThatOut: ClassTag, Key: ClassTag]
+  def joinJava[ThatOut <: Serializable : ClassTag, Key <: Serializable : ClassTag, Out <: Serializable]
   (thisKeyUdf: SerializableFunction[Out, Key],
    that: DataQuanta[ThatOut],
    thatKeyUdf: SerializableFunction[ThatOut, Key])
-  : DataQuanta[WayangTuple2[Out, ThatOut]] = {
+  : DataQuanta[WayangTuple[Out, ThatOut]] = {
     require(this.planBuilder eq that.planBuilder, s"$this and $that must use the same plan builders.")
     val joinOperator = new JoinOperator(
       new TransformationDescriptor(thisKeyUdf, basicDataUnitType[Out], basicDataUnitType[Key]),
@@ -608,7 +607,7 @@ class DataQuanta[Out: ClassTag](val operator: ElementaryOperator, outputIndex: I
   (thisKeyUdf: String,
    that: DataQuanta[ThatOut],
    thatKeyUdf: String)
-  : DataQuanta[WayangTuple2[Out, ThatOut]] = {
+  : DataQuanta[WayangTuple[Out, ThatOut]] = {
     require(this.planBuilder eq that.planBuilder, s"$this and $that must use the same plan builders.")
     val joinOperator = new JoinOperator(
       new WrappedTransformationDescriptor(
@@ -717,7 +716,7 @@ class DataQuanta[Out: ClassTag](val operator: ElementaryOperator, outputIndex: I
   (thisKeyUdf: Out => Key,
    that: DataQuanta[ThatOut],
    thatKeyUdf: ThatOut => Key)
-  : DataQuanta[WayangTuple2[java.lang.Iterable[Out], java.lang.Iterable[ThatOut]]] =
+  : DataQuanta[WayangTuple[java.lang.Iterable[Out], java.lang.Iterable[ThatOut]]] =
     coGroupJava(toSerializableFunction(thisKeyUdf), that, toSerializableFunction(thatKeyUdf))
 
   /**
@@ -732,7 +731,7 @@ class DataQuanta[Out: ClassTag](val operator: ElementaryOperator, outputIndex: I
   (thisKeyUdf: SerializableFunction[Out, Key],
    that: DataQuanta[ThatOut],
    thatKeyUdf: SerializableFunction[ThatOut, Key])
-  : DataQuanta[WayangTuple2[java.lang.Iterable[Out], java.lang.Iterable[ThatOut]]] = {
+  : DataQuanta[WayangTuple[java.lang.Iterable[Out], java.lang.Iterable[ThatOut]]] = {
     require(this.planBuilder eq that.planBuilder, s"$this and $that must use the same plan builders.")
     val coGroupOperator = new CoGroupOperator(
       new TransformationDescriptor(thisKeyUdf, basicDataUnitType[Out], basicDataUnitType[Key]),
@@ -778,7 +777,7 @@ class DataQuanta[Out: ClassTag](val operator: ElementaryOperator, outputIndex: I
     * @return a new instance representing the [[CartesianOperator]]'s output
     */
   def cartesian[ThatOut: ClassTag](that: DataQuanta[ThatOut])
-  : DataQuanta[WayangTuple2[Out, ThatOut]] = {
+  : DataQuanta[WayangTuple[Out, ThatOut]] = {
     require(this.planBuilder eq that.planBuilder, s"$this and $that must use the same plan builders.")
     val cartesianOperator = new CartesianOperator(dataSetType[Out], dataSetType[ThatOut])
     this.connectTo(cartesianOperator, 0)
@@ -791,7 +790,7 @@ class DataQuanta[Out: ClassTag](val operator: ElementaryOperator, outputIndex: I
     *
     * @return a new instance representing the [[ZipWithIdOperator]]'s output
     */
-  def zipWithId: DataQuanta[WayangTuple2[java.lang.Long, Out]] = {
+  def zipWithId: DataQuanta[WayangTuple[java.lang.Long, Out]] = {
     val zipWithIdOperator = new ZipWithIdOperator(dataSetType[Out])
     this.connectTo(zipWithIdOperator, 0)
     zipWithIdOperator
@@ -1202,7 +1201,7 @@ class KeyedDataQuanta[Out: ClassTag, Key: ClassTag](val dataQuanta: DataQuanta[O
     * @return the join product [[DataQuanta]]
     */
   def join[ThatOut: ClassTag](that: KeyedDataQuanta[ThatOut, Key]):
-  DataQuanta[WayangTuple2[Out, ThatOut]] =
+  DataQuanta[WayangTuple[Out, ThatOut]] =
     dataQuanta.joinJava[ThatOut, Key](this.keyExtractor, that.dataQuanta, that.keyExtractor)
 
   /**
@@ -1212,7 +1211,7 @@ class KeyedDataQuanta[Out: ClassTag, Key: ClassTag](val dataQuanta: DataQuanta[O
     * @return the co-grouped [[DataQuanta]]
     */
   def coGroup[ThatOut: ClassTag](that: KeyedDataQuanta[ThatOut, Key]):
-  DataQuanta[WayangTuple2[java.lang.Iterable[Out], java.lang.Iterable[ThatOut]]] =
+  DataQuanta[WayangTuple[java.lang.Iterable[Out], java.lang.Iterable[ThatOut]]] =
     dataQuanta.coGroupJava[ThatOut, Key](this.keyExtractor, that.dataQuanta, that.keyExtractor)
 
 }
@@ -1221,7 +1220,7 @@ class KeyedDataQuanta[Out: ClassTag, Key: ClassTag](val dataQuanta: DataQuanta[O
   * This class amends joined [[DataQuanta]] with additional operations.
   */
 class JoinedDataQuanta[Out0: ClassTag, Out1: ClassTag]
-(val dataQuanta: DataQuanta[WayangTuple2[Out0, Out1]]) {
+(val dataQuanta: DataQuanta[WayangTuple[Out0, Out1]]) {
 
   /**
     * Assembles a new element from a join product tuple.
@@ -1233,7 +1232,7 @@ class JoinedDataQuanta[Out0: ClassTag, Out1: ClassTag]
   def assemble[NewOut: ClassTag](udf: (Out0, Out1) => NewOut,
                                  udfLoad: LoadProfileEstimator = null):
   DataQuanta[NewOut] =
-    dataQuanta.map(joinTuple => udf.apply(joinTuple.field0, joinTuple.field1), udfLoad)
+    dataQuanta.map(joinTuple => udf.apply(joinTuple.getField0(), joinTuple.getField1()), udfLoad)
 
   /**
     * Assembles a new element from a join product tuple.
@@ -1244,7 +1243,7 @@ class JoinedDataQuanta[Out0: ClassTag, Out1: ClassTag]
     */
   def assembleJava[NewOut: ClassTag](assembler: JavaBiFunction[Out0, Out1, NewOut],
                                      udfLoad: LoadProfileEstimator = null): DataQuanta[NewOut] =
-    dataQuanta.map(join => assembler.apply(join.field0, join.field1), udfLoad)
+    dataQuanta.map(join => assembler.apply(join.getField0(), join.getField1()), udfLoad)
 
 }
 

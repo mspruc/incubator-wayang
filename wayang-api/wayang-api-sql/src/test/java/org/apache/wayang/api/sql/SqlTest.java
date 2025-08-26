@@ -32,7 +32,7 @@ import org.apache.wayang.spark.Spark;
 import java.util.ArrayList;
 import java.util.Collection;
 
-
+//TODO: convert test to Junit test
 public class SqlTest {
 
 

@@ -55,7 +55,7 @@ class JavaReduceByOperatorTest extends JavaExecutionOperatorTestBase {
                                 "field0"),
                         new ReduceDescriptor<>(
                                 (a, b) -> {
-                                    a.field1 += b.field1;
+                                    a.setField1(a.getField1() + b.getField1());
                                     return a;
                                 }, DataUnitType.createGroupedUnchecked(Tuple2.class),
                                 DataUnitType.createBasicUnchecked(Tuple2.class)
@@ -70,7 +70,7 @@ class JavaReduceByOperatorTest extends JavaExecutionOperatorTestBase {
         // Verify the outcome.
         final Set<Tuple2<String, Integer>> result =
                 outputs[0].<Tuple2<String, Integer>>provideStream().collect(Collectors.toSet());
-        final Tuple2[] expectedResults = {
+        final Tuple2<?,?>[] expectedResults = {
                 new Tuple2<>("a", 3),
                 new Tuple2<>("b", 2),
                 new Tuple2<>("c", 4),

@@ -65,7 +65,7 @@ public class OperatorAlternativeCardinalityPusher extends AbstractAlternativeCar
                                  Configuration configuration,
                                  OptimizationContext optimizationCtx) {
         // Perform the push.
-        traversal.field1.traverse(optimizationCtx, configuration);
+        traversal.getField1().traverse(optimizationCtx, configuration);
     }
 
 }

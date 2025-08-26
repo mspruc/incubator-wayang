@@ -70,6 +70,7 @@ class SparkOperatorTestBase {
     protected void evaluate(SparkExecutionOperator operator,
                             ChannelInstance[] inputs,
                             ChannelInstance[] outputs) {
+        System.out.println("evaling op: " + operator);
         operator.evaluate(inputs, outputs, this.sparkExecutor, this.createOperatorContext(operator));
     }
 

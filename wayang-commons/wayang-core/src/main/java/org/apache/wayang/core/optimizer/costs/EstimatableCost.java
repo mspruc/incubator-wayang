@@ -35,7 +35,7 @@ import java.util.List;
  * methods to estimate a PlanImplementation's cost.
  */
 public interface EstimatableCost {
-    /* Factory that has to be provided in order to make instances of Costs*/
+    /* Factory that has to be provided in order to make instances of Costs */
     public EstimatableCostFactory getFactory();
 
     public PlanImplementation pickBestExecutionPlan(
@@ -53,5 +53,6 @@ public interface EstimatableCost {
 
     public double getSquashedParallelEstimate(PlanImplementation plan, boolean isOverheadIncluded);
 
-    public Tuple<List<ProbabilisticDoubleInterval>, List<Double>> getParallelOperatorJunctionAllCostEstimate(PlanImplementation plan, Operator operator);
+    public Tuple<List<ProbabilisticDoubleInterval>, List<Double>> getParallelOperatorJunctionAllCostEstimate(
+            PlanImplementation plan, Operator operator);
 }

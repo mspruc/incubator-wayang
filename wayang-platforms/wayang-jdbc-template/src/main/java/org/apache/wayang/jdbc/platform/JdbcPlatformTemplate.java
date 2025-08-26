@@ -30,8 +30,6 @@ import org.apache.wayang.jdbc.channels.SqlQueryChannel;
 import org.apache.wayang.jdbc.execution.DatabaseDescriptor;
 import org.apache.wayang.jdbc.execution.JdbcExecutor;
 
-import java.sql.Connection;
-
 /**
  * {@link Platform} implementation for a JDBC-accessible database.
  */
@@ -47,27 +45,17 @@ public abstract class JdbcPlatformTemplate extends Platform {
 
     public final String jdbcPasswordProperty = String.format("wayang.%s.jdbc.password", this.getPlatformId());
 
-    private String getDefaultConfigurationFile() {
-        return String.format("wayang-%s-defaults.properties", this.getPlatformId());
-    }
-
     /**
      * {@link ChannelDescriptor} for {@link SqlQueryChannel}s with this instance.
      */
     private final SqlQueryChannel.Descriptor sqlQueryChannelDescriptor = new SqlQueryChannel.Descriptor(this);
 
-    public Connection getConnection() {
-        return connection;
-    }
-
-    private Connection connection = null;
-
-    protected JdbcPlatformTemplate(String platformName, String configName) {
+    protected JdbcPlatformTemplate(final String platformName, final String configName) {
         super(platformName, configName);
     }
 
     @Override
-    public void configureDefaults(Configuration configuration) {
+    public void configureDefaults(final Configuration configuration) {
         configuration.load(ReflectionUtils.loadResource(this.getDefaultConfigurationFile()));
     }
 
@@ -77,40 +65,32 @@ public abstract class JdbcPlatformTemplate extends Platform {
     }
 
     @Override
-    public LoadProfileToTimeConverter createLoadProfileToTimeConverter(Configuration configuration) {
-        int cpuMhz = (int) configuration.getLongProperty(this.cpuMhzProperty);
-        int numCores = (int) configuration.getLongProperty(this.coresProperty);
+    public LoadProfileToTimeConverter createLoadProfileToTimeConverter(final Configuration configuration) {
+        final int cpuMhz = (int) configuration.getLongProperty(this.cpuMhzProperty);
+        final int numCores = (int) configuration.getLongProperty(this.coresProperty);
         return LoadProfileToTimeConverter.createDefault(
-                LoadToTimeConverter.createLinearCoverter(1 / (numCores * cpuMhz * 1000.)),
+                LoadToTimeConverter.createLinearCoverter(1 / (numCores * cpuMhz * 1000)),
                 LoadToTimeConverter.createLinearCoverter(0),
                 LoadToTimeConverter.createLinearCoverter(0),
-                (cpuEstimate, diskEstimate, networkEstimate) -> cpuEstimate.plus(diskEstimate).plus(networkEstimate)
-        );
+                (cpuEstimate, diskEstimate, networkEstimate) -> cpuEstimate.plus(diskEstimate).plus(networkEstimate));
     }
 
     @Override
-    public TimeToCostConverter createTimeToCostConverter(Configuration configuration) {
+    public TimeToCostConverter createTimeToCostConverter(final Configuration configuration) {
         return new TimeToCostConverter(
                 configuration.getDoubleProperty(String.format("wayang.%s.costs.fix", this.getPlatformId())),
-                configuration.getDoubleProperty(String.format("wayang.%s.costs.per-ms", this.getPlatformId()))
-        );
+                configuration.getDoubleProperty(String.format("wayang.%s.costs.per-ms", this.getPlatformId())));
     }
 
     /**
-     * Provide a unique identifier for this kind of platform. Should consist of alphanumerical characters only.
+     * Provide a unique identifier for this kind of platform. Should consist of
+     * alphanumerical characters only.
      *
      * @return the platform ID
      */
     public String getPlatformId() {
         return this.getConfigurationName();
     }
-
-    /**
-     * Provide the name of the JDBC driver {@link Class} for this instance.
-     *
-     * @return the driver {@link Class} name
-     */
-    protected abstract String getJdbcDriverClassName();
 
     /**
      * Retrieve a {@link SqlQueryChannel.Descriptor} for this instance.
@@ -122,17 +102,28 @@ public abstract class JdbcPlatformTemplate extends Platform {
     }
 
     /**
-     * Creates a new {@link DatabaseDescriptor} for this instance and the given {@link Configuration}.
+     * Creates a new {@link DatabaseDescriptor} for this instance and the given
+     * {@link Configuration}.
      *
      * @param configuration provides configuration information for the result
      * @return the {@link DatabaseDescriptor}
      */
-    public DatabaseDescriptor createDatabaseDescriptor(Configuration configuration) {
+    public DatabaseDescriptor createDatabaseDescriptor(final Configuration configuration) {
         return new DatabaseDescriptor(
                 configuration.getStringProperty(this.jdbcUrlProperty),
                 configuration.getStringProperty(this.jdbcUserProperty, null),
                 configuration.getStringProperty(this.jdbcPasswordProperty, null),
-                this.getJdbcDriverClassName()
-        );
+                this.getJdbcDriverClassName());
+    }
+
+    /**
+     * Provide the name of the JDBC driver {@link Class} for this instance.
+     *
+     * @return the driver {@link Class} name
+     */
+    protected abstract String getJdbcDriverClassName();
+
+    private String getDefaultConfigurationFile() {
+        return String.format("wayang-%s-defaults.properties", this.getPlatformId());
     }
 }

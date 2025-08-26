@@ -18,13 +18,13 @@
 
 package org.apache.wayang.basic.data;
 
-import org.apache.wayang.core.util.Copyable;
-import org.apache.wayang.core.util.ReflectionUtils;
-
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+
+import org.apache.wayang.core.util.Copyable;
+import org.apache.wayang.core.util.ReflectionUtils;
 
 /**
  * A Type that represents a record with a schema, might be replaced with
@@ -32,18 +32,18 @@ import java.util.Objects;
  */
 public class Record implements Serializable, Copyable<Record>, Comparable<Record> {
 
-    private Object[] values;
+    private Serializable[] values;
 
-    public Object[] getValues() {
-        return values;
-    }
-
-    public Record(final Object... values) {
+    public Record(final Serializable... values) {
         this.values = values;
     }
 
-    public Record(final List<Object> values) {
-        this.values = values.toArray();
+    public Record(final List<Serializable> values) {
+        this.values = values.toArray(Serializable[]::new);
+    }
+
+    public Serializable[] getValues() {
+        return values;
     }
 
     @Override
@@ -67,7 +67,9 @@ public class Record implements Serializable, Copyable<Record>, Comparable<Record
     }
 
     @Override
-    public String toString() { return "Record" + Arrays.toString(this.values); }
+    public String toString() {
+        return "Record" + Arrays.toString(this.values);
+    }
 
     public Object getField(final int index) {
         return this.values[index];
@@ -84,6 +86,9 @@ public class Record implements Serializable, Copyable<Record>, Comparable<Record
         return ReflectionUtils.toDouble(field);
     }
 
+
+    //TODO: we could probably save a lot of casting headache by using some sealed interface.
+
     /**
      * Retrieve a field as a {@code long}. It must be castable as such.
      *
@@ -92,14 +97,14 @@ public class Record implements Serializable, Copyable<Record>, Comparable<Record
      */
     public long getLong(final int index) {
         final Object field = this.values[index];
-        if (field instanceof Integer)
-            return (Integer) field;
-        else if (field instanceof Long)
-            return (Long) field;
-        else if (field instanceof Short)
-            return (Short) field;
-        else if (field instanceof Byte)
-            return (Byte) field;
+        if (field instanceof final Integer val)
+            return val;
+        else if (field instanceof final Long val)
+            return val;
+        else if (field instanceof final Short val)
+            return val;
+        else if (field instanceof final Byte val)
+            return val;
         throw new IllegalStateException(String.format("%s cannot be retrieved as long.", field));
     }
 
@@ -111,12 +116,12 @@ public class Record implements Serializable, Copyable<Record>, Comparable<Record
      */
     public int getInt(final int index) {
         final Object field = this.values[index];
-        if (field instanceof Integer)
-            return (Integer) field;
-        else if (field instanceof Short)
-            return (Short) field;
-        else if (field instanceof Byte)
-            return (Byte) field;
+        if (field instanceof final Integer val)
+            return val;
+        else if (field instanceof final Short val)
+            return val;
+        else if (field instanceof final Byte val)
+            return val;
         throw new IllegalStateException(String.format("%s cannot be retrieved as int.", field));
     }
 
@@ -139,7 +144,7 @@ public class Record implements Serializable, Copyable<Record>, Comparable<Record
      * @param index the index of the field
      * @param field the new value of the field to be set
      */
-    public void setField(final int index, final Object field) {
+    public void setField(final int index, final Serializable field) {
         this.values[index] = field;
     }
 
@@ -148,9 +153,9 @@ public class Record implements Serializable, Copyable<Record>, Comparable<Record
      *
      * @param field the field to add
      */
-    public void addField(final Object field) {
+    public void addField(final Serializable field) {
         final int size = this.size();
-        final Object[] newValues = Arrays.copyOf(this.values, size + 1);
+        final Serializable[] newValues = Arrays.copyOf(this.values, size + 1);
         newValues[size] = field;
         this.values = newValues;
     }
@@ -169,7 +174,8 @@ public class Record implements Serializable, Copyable<Record>, Comparable<Record
      * 
      * @param that another record not null
      * @return
-     * @throws IllegalStateException if the two records do not have the same types in {@link #values}
+     * @throws IllegalStateException if the two records do not have the same types
+     *                               in {@link #values}
      */
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override

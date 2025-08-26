@@ -18,9 +18,16 @@
 
 package org.apache.wayang.flink.operators;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
 import org.apache.flink.api.common.functions.MapPartitionFunction;
 import org.apache.flink.api.common.functions.RichMapPartitionFunction;
 import org.apache.flink.api.java.DataSet;
+
 import org.apache.wayang.basic.operators.MapPartitionsOperator;
 import org.apache.wayang.core.api.Configuration;
 import org.apache.wayang.core.function.MapPartitionsDescriptor;
@@ -37,32 +44,25 @@ import org.apache.wayang.flink.channels.DataSetChannel;
 import org.apache.wayang.flink.execution.FlinkExecutionContext;
 import org.apache.wayang.flink.execution.FlinkExecutor;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-
 /**
  * Flink implementation of the {@link MapPartitionsOperator}.
  */
-public class FlinkMapPartitionsOperator<InputType, OutputType>
-        extends MapPartitionsOperator<InputType, OutputType>
+public class FlinkMapPartitionsOperator<I, O>
+        extends MapPartitionsOperator<I, O>
         implements FlinkExecutionOperator {
-
 
     /**
      * Creates a new instance.
      */
-    public FlinkMapPartitionsOperator(MapPartitionsDescriptor<InputType, OutputType> functionDescriptor,
-                                      DataSetType<InputType> inputType, DataSetType<OutputType> outputType) {
+    public FlinkMapPartitionsOperator(final MapPartitionsDescriptor<I, O> functionDescriptor,
+            final DataSetType<I> inputType, final DataSetType<O> outputType) {
         super(functionDescriptor, inputType, outputType);
     }
 
     /**
      * Creates a new instance.
      */
-    public FlinkMapPartitionsOperator(MapPartitionsDescriptor<InputType, OutputType> functionDescriptor) {
+    public FlinkMapPartitionsOperator(final MapPartitionsDescriptor<I, O> functionDescriptor) {
         this(functionDescriptor,
                 DataSetType.createDefault(functionDescriptor.getInputType()),
                 DataSetType.createDefault(functionDescriptor.getOutputType()));
@@ -73,16 +73,16 @@ public class FlinkMapPartitionsOperator<InputType, OutputType>
      *
      * @param that that should be copied
      */
-    public FlinkMapPartitionsOperator(MapPartitionsOperator<InputType, OutputType> that) {
+    public FlinkMapPartitionsOperator(final MapPartitionsOperator<I, O> that) {
         super(that);
     }
 
     @Override
     public Tuple<Collection<ExecutionLineageNode>, Collection<ChannelInstance>> evaluate(
-            ChannelInstance[] inputs,
-            ChannelInstance[] outputs,
-            FlinkExecutor flinkExecutor,
-            OptimizationContext.OperatorContext operatorContext) {
+            final ChannelInstance[] inputs,
+            final ChannelInstance[] outputs,
+            final FlinkExecutor flinkExecutor,
+            final OptimizationContext.OperatorContext operatorContext) {
         assert inputs.length == this.getNumInputs();
         assert outputs.length == this.getNumOutputs();
 
@@ -90,54 +90,38 @@ public class FlinkMapPartitionsOperator<InputType, OutputType>
         final DataSetChannel.Instance output = (DataSetChannel.Instance) outputs[0];
 
         final DataSet dataSetInput = input.provideDataSet();
-        final Class class_output = this.getOutput().getType().getDataUnitType().getTypeClass();
+        final Class<O> classOutput = this.getOutput().getType().getDataUnitType().getTypeClass();
+
         DataSet dataSetOutput;
-        if( this.getNumBroadcastInputs() > 0 ) {
-            Tuple<String, DataSet> names = searchBroadcast(inputs);
+        if (this.getNumBroadcastInputs() > 0) {
+            final Tuple<String, DataSet> names = searchBroadcast(inputs);
 
-            FlinkExecutionContext fex = new FlinkExecutionContext(this, inputs, 0);
+            final FlinkExecutionContext fex = new FlinkExecutionContext(this, inputs, 0);
 
-            final RichMapPartitionFunction<InputType, OutputType> richFunction =
-                    flinkExecutor.compiler.compile(
-                            this.getFunctionDescriptor(),
-                            fex
-                    );
+            final RichMapPartitionFunction<I, O> richFunction = flinkExecutor.compiler.compile(
+                    this.getFunctionDescriptor(),
+                    fex);
 
             fex.setRichFunction(richFunction);
 
             dataSetOutput = dataSetInput
                     .mapPartition(richFunction)
-                    .withBroadcastSet(names.field1, names.field0)
-                    .returns(class_output)
+                    .withBroadcastSet(names.getField1(), names.getField0())
+                    .returns(classOutput)
                     .setParallelism(flinkExecutor.fee.getParallelism());
 
-        }else{
-            final MapPartitionFunction<InputType, OutputType> mapFunction =
-                    flinkExecutor.compiler.compile(this.getFunctionDescriptor());
+        } else {
+            final MapPartitionFunction<I, O> mapFunction = flinkExecutor.compiler
+                    .compile(this.getFunctionDescriptor());
 
             dataSetOutput = dataSetInput.mapPartition(mapFunction)
-                .returns(class_output)
-                .setParallelism(flinkExecutor.fee.getParallelism());
+                    .returns(classOutput)
+                    .setParallelism(flinkExecutor.fee.getParallelism());
         }
 
         output.accept(dataSetOutput, flinkExecutor);
 
         return ExecutionOperator.modelLazyExecution(inputs, outputs, operatorContext);
-    }
-
-    private Tuple<String, DataSet> searchBroadcast(ChannelInstance[] inputs) {
-        for(int i = 0; i < this.inputSlots.length; i++){
-            if( this.inputSlots[i].isBroadcast() ){
-                DataSetChannel.Instance dataSetChannel = (DataSetChannel.Instance)inputs[inputSlots[i].getIndex()];
-                return new Tuple<>(inputSlots[i].getName(), dataSetChannel.provideDataSet());
-            }
-        }
-        return null;
-    }
-
-    @Override
-    protected ExecutionOperator createCopy() {
-        return new FlinkMapPartitionsOperator<>(this.getFunctionDescriptor(), this.getInputType(), this.getOutputType());
     }
 
     @Override
@@ -146,26 +130,43 @@ public class FlinkMapPartitionsOperator<InputType, OutputType>
     }
 
     @Override
-    public Optional<LoadProfileEstimator> createLoadProfileEstimator(Configuration configuration) {
-        final Optional<LoadProfileEstimator> optEstimator =
-                FlinkExecutionOperator.super.createLoadProfileEstimator(configuration);
+    public Optional<LoadProfileEstimator> createLoadProfileEstimator(final Configuration configuration) {
+        final Optional<LoadProfileEstimator> optEstimator = FlinkExecutionOperator.super.createLoadProfileEstimator(
+                configuration);
         LoadProfileEstimators.nestUdfEstimator(optEstimator, this.functionDescriptor, configuration);
         return optEstimator;
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedInputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedInputChannels(final int index) {
         return Arrays.asList(DataSetChannel.DESCRIPTOR, DataSetChannel.DESCRIPTOR_MANY);
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedOutputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedOutputChannels(final int index) {
         return Collections.singletonList(DataSetChannel.DESCRIPTOR);
     }
 
     @Override
     public boolean containsAction() {
         return false;
+    }
+
+    @Override
+    protected ExecutionOperator createCopy() {
+        return new FlinkMapPartitionsOperator<>(this.getFunctionDescriptor(), this.getInputType(),
+                this.getOutputType());
+    }
+
+    private Tuple<String, DataSet> searchBroadcast(final ChannelInstance[] inputs) {
+        for (int i = 0; i < this.inputSlots.length; i++) {
+            if (this.inputSlots[i].isBroadcast()) {
+                final DataSetChannel.Instance dataSetChannel = (DataSetChannel.Instance) inputs[inputSlots[i]
+                        .getIndex()];
+                return new Tuple<>(inputSlots[i].getName(), dataSetChannel.provideDataSet());
+            }
+        }
+        return null;
     }
 
 }

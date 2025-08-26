@@ -18,9 +18,16 @@
 
 package org.apache.wayang.flink.operators;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
 import org.apache.flink.api.java.DataSet;
+
 import org.apache.wayang.basic.operators.FlatMapOperator;
 import org.apache.wayang.core.api.Configuration;
 import org.apache.wayang.core.function.FlatMapDescriptor;
@@ -38,17 +45,11 @@ import org.apache.wayang.flink.channels.DataSetChannel;
 import org.apache.wayang.flink.execution.FlinkExecutionContext;
 import org.apache.wayang.flink.execution.FlinkExecutor;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-
 /**
  * Flink implementation of the {@link FlatMapOperator}.
  */
-public class FlinkFlatMapOperator<InputType, OutputType>
-        extends FlatMapOperator<InputType, OutputType>
+public class FlinkFlatMapOperator<I, O>
+        extends FlatMapOperator<I, O>
         implements FlinkExecutionOperator {
 
     /**
@@ -56,8 +57,8 @@ public class FlinkFlatMapOperator<InputType, OutputType>
      *
      * @param functionDescriptor
      */
-    public FlinkFlatMapOperator(DataSetType<InputType> inputType, DataSetType<OutputType> outputType,
-                                FlatMapDescriptor<InputType, OutputType> functionDescriptor) {
+    public FlinkFlatMapOperator(final DataSetType<I> inputType, final DataSetType<O> outputType,
+            final FlatMapDescriptor<I, O> functionDescriptor) {
         super(functionDescriptor, inputType, outputType);
     }
 
@@ -66,77 +67,60 @@ public class FlinkFlatMapOperator<InputType, OutputType>
      *
      * @param that that should be copied
      */
-    public FlinkFlatMapOperator(FlatMapOperator<InputType, OutputType> that) {
+    public FlinkFlatMapOperator(final FlatMapOperator<I, O> that) {
         super(that);
     }
 
-    public FlinkFlatMapOperator(){
-        super((FlatMapOperator<InputType, OutputType>) null);
+    public FlinkFlatMapOperator() {
+        super((FlatMapOperator<I, O>) null);
     }
 
     @Override
     public Tuple<Collection<ExecutionLineageNode>, Collection<ChannelInstance>> evaluate(
-            ChannelInstance[] inputs,
-            ChannelInstance[] outputs,
-            FlinkExecutor flinkExecutor,
-            OptimizationContext.OperatorContext operatorContext) {
+            final ChannelInstance[] inputs,
+            final ChannelInstance[] outputs,
+            final FlinkExecutor flinkExecutor,
+            final OptimizationContext.OperatorContext operatorContext) {
         assert inputs.length == this.getNumInputs();
         assert outputs.length == this.getNumOutputs();
 
         final DataSetChannel.Instance input = (DataSetChannel.Instance) inputs[0];
         final DataSetChannel.Instance output = (DataSetChannel.Instance) outputs[0];
 
+        final DataSet<I> dataSetInput = input.provideDataSet();
 
-        final DataSet<InputType>  dataSetInput  = input.provideDataSet();
+        final DataSet<O> dataSetOutput;
+        if (this.getNumBroadcastInputs() > 0) {
 
-        final DataSet<OutputType> dataSetOutput;
-        if( this.getNumBroadcastInputs() > 0 ){
+            final Tuple<String, DataSet> names = searchBroadcast(inputs);
 
-            Tuple<String, DataSet> names = searchBroadcast(inputs);
+            final FlinkExecutionContext fex = new FlinkExecutionContext(this, inputs, 0);
 
-            FlinkExecutionContext fex = new FlinkExecutionContext(this, inputs, 0);
-
-            RichFlatMapFunction<InputType, OutputType> richFunction = flinkExecutor.compiler
-                    .compile(
-                            (FunctionDescriptor.ExtendedSerializableFunction)
-                                    this.functionDescriptor.getJavaImplementation(),
-                            fex
-                    );
+            final RichFlatMapFunction<I, O> richFunction = flinkExecutor.compiler
+                    .compile((FunctionDescriptor.ExtendedSerializableFunction) this.functionDescriptor
+                                    .getJavaImplementation(),
+                            fex);
             fex.setRichFunction(richFunction);
 
             dataSetOutput = dataSetInput
                     .flatMap(richFunction)
                     .setParallelism(flinkExecutor.fee.getParallelism())
                     .returns(this.functionDescriptor.getOutputType().getTypeClass())
-                    .withBroadcastSet(names.field1, names.field0);
+                    .withBroadcastSet(names.getField1(), names.getField0());
 
-        }else {
+        } else {
 
-            final FlatMapFunction<InputType, OutputType> flatMapFunction =
-                    flinkExecutor.getCompiler().compile((FunctionDescriptor.SerializableFunction<InputType, Iterable<OutputType>>)this.functionDescriptor.getJavaImplementation());
+            final FlatMapFunction<I, O> flatMapFunction = flinkExecutor.getCompiler()
+                    .compile((FunctionDescriptor.SerializableFunction<I, Iterable<O>>) this.functionDescriptor
+                            .getJavaImplementation());
 
             dataSetOutput = dataSetInput.flatMap(flatMapFunction)
-                .setParallelism(flinkExecutor.fee.getParallelism())
-                .returns(this.functionDescriptor.getOutputType().getTypeClass());
+                    .setParallelism(flinkExecutor.fee.getParallelism())
+                    .returns(this.functionDescriptor.getOutputType().getTypeClass());
         }
         output.accept(dataSetOutput, flinkExecutor);
 
         return ExecutionOperator.modelLazyExecution(inputs, outputs, operatorContext);
-    }
-
-    private Tuple<String, DataSet> searchBroadcast(ChannelInstance[] inputs) {
-        for(int i = 0; i < this.inputSlots.length; i++){
-            if( this.inputSlots[i].isBroadcast() ){
-                DataSetChannel.Instance dataSetChannel = (DataSetChannel.Instance)inputs[inputSlots[i].getIndex()];
-                return new Tuple<>(inputSlots[i].getName(), dataSetChannel.provideDataSet());
-            }
-        }
-        return null;
-    }
-
-    @Override
-    protected ExecutionOperator createCopy() {
-        return new FlinkFlatMapOperator<>(this.getInputType(), this.getOutputType(), this.getFunctionDescriptor());
     }
 
     @Override
@@ -145,26 +129,41 @@ public class FlinkFlatMapOperator<InputType, OutputType>
     }
 
     @Override
-    public Optional<LoadProfileEstimator> createLoadProfileEstimator(Configuration configuration) {
-        final Optional<LoadProfileEstimator> optEstimator =
-                FlinkExecutionOperator.super.createLoadProfileEstimator(configuration);
+    public Optional<LoadProfileEstimator> createLoadProfileEstimator(final Configuration configuration) {
+        final Optional<LoadProfileEstimator> optEstimator = FlinkExecutionOperator.super.createLoadProfileEstimator(
+                configuration);
         LoadProfileEstimators.nestUdfEstimator(optEstimator, this.functionDescriptor, configuration);
         return optEstimator;
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedInputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedInputChannels(final int index) {
         return Arrays.asList(DataSetChannel.DESCRIPTOR, DataSetChannel.DESCRIPTOR_MANY);
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedOutputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedOutputChannels(final int index) {
         return Collections.singletonList(DataSetChannel.DESCRIPTOR);
     }
 
     @Override
     public boolean containsAction() {
         return false;
+    }
+
+    @Override
+    protected ExecutionOperator createCopy() {
+        return new FlinkFlatMapOperator<>(this.getInputType(), this.getOutputType(), this.getFunctionDescriptor());
+    }
+
+    private Tuple<String, DataSet> searchBroadcast(final ChannelInstance[] inputs) {
+        for (int i = 0; i < this.inputSlots.length; i++) {
+            if (this.inputSlots[i].isBroadcast()) {
+                final DataSetChannel.Instance dataSetChannel = (DataSetChannel.Instance) inputs[inputSlots[i].getIndex()];
+                return new Tuple<>(inputSlots[i].getName(), dataSetChannel.provideDataSet());
+            }
+        }
+        return null;
     }
 
 }

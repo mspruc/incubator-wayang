@@ -24,7 +24,6 @@ import org.apache.wayang.core.optimizer.OptimizationContext;
 import org.apache.wayang.core.optimizer.ProbabilisticDoubleInterval;
 import org.apache.wayang.core.optimizer.costs.TimeEstimate;
 import org.apache.wayang.core.optimizer.costs.TimeToCostConverter;
-import org.apache.wayang.core.optimizer.costs.DefaultEstimatableCost;
 import org.apache.wayang.core.optimizer.costs.EstimatableCost;
 import org.apache.wayang.core.plan.executionplan.Channel;
 import org.apache.wayang.core.plan.executionplan.ExecutionTask;
@@ -688,8 +687,8 @@ public class PlanImplementation {
 
         // check if the operator cost was already calculated and cached
         for (Tuple<Operator, Tuple<List<ProbabilisticDoubleInterval>, List<Double>>> t : calculatedParallelOperatorCostCache) {
-            if (t.field0 == operator)
-                return t.field1;
+            if (t.getField0() == operator)
+                return t.getField1();
         }
 
         if (this.optimizationContext.getOperatorContext(operator) != null) {
@@ -721,16 +720,16 @@ public class PlanImplementation {
 
                 // Get the operator probalistic cost and put it as a first element in probalisticCost
                 probalisticCost.add(this.optimizationContext.getOperatorContext(operator).getCostEstimate()
-                        .plus(this.getParallelOperatorJunctionAllCostEstimate(inputOperators.iterator().next()).field0.get(0)));
+                        .plus(this.getParallelOperatorJunctionAllCostEstimate(inputOperators.iterator().next()).getField0().get(0)));
                 // Get the junction probalistic cost and put it as a second element in probalisticCost
                 probalisticCost.add(inputJunction.iterator().next().getCostEstimate(this.optimizationContext.getDefaultOptimizationContexts().get(0))
-                        .plus(this.getParallelOperatorJunctionAllCostEstimate(inputOperators.iterator().next()).field0.get(1)));
+                        .plus(this.getParallelOperatorJunctionAllCostEstimate(inputOperators.iterator().next()).getField0().get(1)));
                 // Get the operator squashed cost and put it as a first element in squashedCost
                 squashedCost.add(this.optimizationContext.getOperatorContext(operator).getSquashedCostEstimate()
-                        + this.getParallelOperatorJunctionAllCostEstimate(inputOperators.iterator().next()).field1.get(0));
+                        + this.getParallelOperatorJunctionAllCostEstimate(inputOperators.iterator().next()).getField1().get(0));
                 // Get the junction squashed cost and put it as a second element in squashedCost
                 squashedCost.add(inputJunction.iterator().next().getSquashedCostEstimate(this.optimizationContext.getDefaultOptimizationContexts().get(0))
-                        + this.getParallelOperatorJunctionAllCostEstimate(inputOperators.iterator().next()).field1.get(1));
+                        + this.getParallelOperatorJunctionAllCostEstimate(inputOperators.iterator().next()).getField1().get(1));
 
                 Tuple<List<ProbabilisticDoubleInterval>, List<Double>> returnedCost = new Tuple(probalisticCost, squashedCost);
                 this.calculatedParallelOperatorCostCache.add(new Tuple(operator, returnedCost));
@@ -745,8 +744,8 @@ public class PlanImplementation {
 
                 for (Iterator<Operator> op = inputOperators.iterator(); op.hasNext(); ) {
                     Tuple<List<ProbabilisticDoubleInterval>, List<Double>> val = this.getParallelOperatorJunctionAllCostEstimate(op.next());
-                    List<ProbabilisticDoubleInterval> valProbalistic = val.field0;
-                    List<Double> valSquash = val.field1;
+                    List<ProbabilisticDoubleInterval> valProbalistic = val.getField0();
+                    List<Double> valSquash = val.getField1();
                     // Take the max of the probalistic cost
                     if (valProbalistic.get(0).getAverageEstimate() + valProbalistic.get(1).getAverageEstimate() >
                             maxControlProbabilistic.getAverageEstimate() + maxJunctionProbabilistic.getAverageEstimate()) {
@@ -813,7 +812,7 @@ public class PlanImplementation {
         final ProbabilisticDoubleInterval loopCosts = this.loopImplementations.values().stream()
                 .map(LoopImplementation::getCostEstimate)
                 .reduce(ProbabilisticDoubleInterval.zero, ProbabilisticDoubleInterval::plus);
-        parallelCostEstimateWithoutOverhead = this.parallelCostEstimateCache.field0.get(0).plus(this.parallelCostEstimateCache.field0.get(1)).plus(loopCosts);
+        parallelCostEstimateWithoutOverhead = this.parallelCostEstimateCache.getField0().get(0).plus(this.parallelCostEstimateCache.getField0().get(1)).plus(loopCosts);
         ProbabilisticDoubleInterval overheadCosts = this.getUtilizedPlatforms().stream()
                 .map(platform -> {
                     Configuration configuration = this.optimizationContext.getConfiguration();
@@ -847,7 +846,7 @@ public class PlanImplementation {
         // Iterate through all sinks to find the expensive sink
         for (Operator op : sinkOperators) {
             Tuple<List<ProbabilisticDoubleInterval>, List<Double>> tempParallelCostEstimate = this.getParallelOperatorJunctionAllCostEstimate(op);
-            List<Double> tempSquashedCost = tempParallelCostEstimate.field1;
+            List<Double> tempSquashedCost = tempParallelCostEstimate.getField1();
 
             if (tempSquashedCost.get(0) + tempSquashedCost.get(1) > parallelOperatorCosts + parallelJunctionCosts) {
                 parallelOperatorCosts = tempSquashedCost.get(0);
@@ -1018,8 +1017,8 @@ public class PlanImplementation {
                 final Tuple<OutputSlot<?>, PlanImplementation> execOpOutputWithCtx =
                         WayangCollections.getSingleOrNull(execOpOutputsWithContext);
                 assert execOpOutputsWithContext != null : String.format("No outputs found for %s.", output);
-                execOutput = execOpOutputWithCtx.field0;
-                execOutputPlanImplementation = execOpOutputWithCtx.field1;
+                execOutput = execOpOutputWithCtx.getField0();
+                execOutputPlanImplementation = execOpOutputWithCtx.getField1();
             }
 
             // Find the ExecutionOperators' corresponding InputSlots.

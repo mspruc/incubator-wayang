@@ -27,43 +27,53 @@ import org.apache.wayang.core.plan.wayangplan.BinaryToUnaryOperator;
 import org.apache.wayang.core.types.DataSetType;
 import org.apache.wayang.core.util.TypeConverter;
 
+import java.io.Serializable;
 import java.util.Optional;
 
 @Deprecated
-public class ModelTransformOperator<X, Y> extends BinaryToUnaryOperator<Model, X, Tuple2<X, Y>> {
+public class ModelTransformOperator<X extends Serializable, Y extends Serializable>
+        extends BinaryToUnaryOperator<Model, X, Tuple2<X, Y>> {
 
     public static ModelTransformOperator<double[], Integer> kMeans() {
         // The type of TypeReference cannot be omitted, to avoid the following error.
-        // error: cannot infer type arguments for TypeReference<T>, reason: cannot use '<>' with anonymous inner classes
-        return new ModelTransformOperator<>(new TypeReference<double[]>() {}, new TypeReference<Tuple2<double[], Integer>>() {});
+        // error: cannot infer type arguments for TypeReference<T>, reason: cannot use
+        // '<>' with anonymous inner classes
+        return new ModelTransformOperator<>(new TypeReference<double[]>() {
+        }, new TypeReference<Tuple2<double[], Integer>>() {
+        });
     }
 
     public static ModelTransformOperator<double[], Double> linearRegression() {
-        return new ModelTransformOperator<>(new TypeReference<double[]>() {}, new TypeReference<Tuple2<double[], Double>>() {});
+        return new ModelTransformOperator<>(new TypeReference<double[]>() {
+        }, new TypeReference<Tuple2<double[], Double>>() {
+        });
     }
 
     public static ModelTransformOperator<double[], Integer> decisionTreeClassification() {
-        return new ModelTransformOperator<>(new TypeReference<double[]>() {}, new TypeReference<Tuple2<double[], Integer>>() {});
+        return new ModelTransformOperator<>(new TypeReference<double[]>() {
+        }, new TypeReference<Tuple2<double[], Integer>>() {
+        });
     }
 
-    public ModelTransformOperator(DataSetType<X> inType, DataSetType<Tuple2<X, Y>> outType) {
+    public ModelTransformOperator(final DataSetType<X> inType, final DataSetType<Tuple2<X, Y>> outType) {
         super(DataSetType.createDefaultUnchecked(Model.class), inType, outType, false);
     }
 
-    public ModelTransformOperator(Class<X> inType, Class<Tuple2<X, Y>> outType) {
+    public ModelTransformOperator(final Class<X> inType, final Class<Tuple2<X, Y>> outType) {
         this(DataSetType.createDefault(inType), DataSetType.createDefault(outType));
     }
 
-    public ModelTransformOperator(TypeReference<X> inType, TypeReference<Tuple2<X, Y>> outType) {
+    public ModelTransformOperator(final TypeReference<X> inType, final TypeReference<Tuple2<X, Y>> outType) {
         this(TypeConverter.convert(inType), TypeConverter.convert(outType));
     }
 
-    public ModelTransformOperator(ModelTransformOperator<X, Y> that) {
+    public ModelTransformOperator(final ModelTransformOperator<X, Y> that) {
         super(that);
     }
 
     @Override
-    public Optional<CardinalityEstimator> createCardinalityEstimator(int outputIndex, Configuration configuration) {
+    public Optional<CardinalityEstimator> createCardinalityEstimator(final int outputIndex,
+            final Configuration configuration) {
         // TODO
         return super.createCardinalityEstimator(outputIndex, configuration);
     }

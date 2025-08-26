@@ -18,6 +18,10 @@
 
 package org.apache.wayang.java.mapping;
 
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.Collections;
+
 import org.apache.wayang.basic.operators.CoGroupOperator;
 import org.apache.wayang.basic.operators.JoinOperator;
 import org.apache.wayang.core.mapping.Mapping;
@@ -30,9 +34,6 @@ import org.apache.wayang.java.operators.JavaCoGroupOperator;
 import org.apache.wayang.java.operators.JavaJoinOperator;
 import org.apache.wayang.java.platform.JavaPlatform;
 
-import java.util.Collection;
-import java.util.Collections;
-
 /**
  * Mapping from {@link JoinOperator} to {@link JavaJoinOperator}.
  */
@@ -43,20 +44,19 @@ public class CoGroupMapping implements Mapping {
         return Collections.singleton(new PlanTransformation(
                 this.createSubplanPattern(),
                 this.createReplacementSubplanFactory(),
-                JavaPlatform.getInstance()
-        ));
+                JavaPlatform.getInstance()));
     }
 
     private SubplanPattern createSubplanPattern() {
-        final OperatorPattern operatorPattern = new OperatorPattern<>(
-                "coGroup", new CoGroupOperator<>(null, null, DataSetType.none(), DataSetType.none()), false
-        );
+        final OperatorPattern<?> operatorPattern = new OperatorPattern<>(
+                "coGroup", new CoGroupOperator<>(null, null, DataSetType.createDefault(Serializable.class),
+                        DataSetType.createDefault(Serializable.class)),
+                false);
         return SubplanPattern.createSingleton(operatorPattern);
     }
 
     private ReplacementSubplanFactory createReplacementSubplanFactory() {
-        return new ReplacementSubplanFactory.OfSingleOperators<CoGroupOperator<Object, Object, Object>>(
-                (matchedOperator, epoch) -> new JavaCoGroupOperator<>(matchedOperator).at(epoch)
-        );
+        return new ReplacementSubplanFactory.OfSingleOperators<CoGroupOperator<Serializable, Serializable, Serializable>>(
+                (matchedOperator, epoch) -> new JavaCoGroupOperator<>(matchedOperator).at(epoch));
     }
 }

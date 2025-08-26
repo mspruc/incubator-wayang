@@ -18,7 +18,14 @@
 
 package org.apache.wayang.spark.operators.ml;
 
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+
 import org.apache.spark.api.java.JavaRDD;
+
 import org.apache.wayang.basic.data.Tuple2;
 import org.apache.wayang.basic.operators.ModelTransformOperator;
 import org.apache.wayang.core.optimizer.OptimizationContext;
@@ -34,24 +41,19 @@ import org.apache.wayang.spark.execution.SparkExecutor;
 import org.apache.wayang.spark.model.SparkMLModel;
 import org.apache.wayang.spark.operators.SparkExecutionOperator;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-
 @Deprecated
-public class SparkModelTransformOperator<X, Y> extends ModelTransformOperator<X, Y> implements SparkExecutionOperator {
+public class SparkModelTransformOperator<X extends Serializable, Y extends Serializable> extends ModelTransformOperator<X, Y> implements SparkExecutionOperator {
 
-    public SparkModelTransformOperator(DataSetType<X> inType, DataSetType<Tuple2<X, Y>> outType) {
+    public SparkModelTransformOperator(final DataSetType<X> inType, final DataSetType<Tuple2<X, Y>> outType) {
         super(inType, outType);
     }
 
-    public SparkModelTransformOperator(ModelTransformOperator<X, Y> that) {
+    public SparkModelTransformOperator(final ModelTransformOperator<X, Y> that) {
         super(that);
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedInputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedInputChannels(final int index) {
         if (index == 0) {
             return Collections.singletonList(CollectionChannel.DESCRIPTOR);
         }
@@ -59,16 +61,16 @@ public class SparkModelTransformOperator<X, Y> extends ModelTransformOperator<X,
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedOutputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedOutputChannels(final int index) {
         return Collections.singletonList(RddChannel.UNCACHED_DESCRIPTOR);
     }
 
     @Override
     public Tuple<Collection<ExecutionLineageNode>, Collection<ChannelInstance>> evaluate(
-            ChannelInstance[] inputs,
-            ChannelInstance[] outputs,
-            SparkExecutor sparkExecutor,
-            OptimizationContext.OperatorContext operatorContext) {
+            final ChannelInstance[] inputs,
+            final ChannelInstance[] outputs,
+            final SparkExecutor sparkExecutor,
+            final OptimizationContext.OperatorContext operatorContext) {
         assert inputs.length == this.getNumInputs();
         assert outputs.length == this.getNumOutputs();
 

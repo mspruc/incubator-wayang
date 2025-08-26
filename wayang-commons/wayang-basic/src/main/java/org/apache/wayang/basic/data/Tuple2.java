@@ -22,27 +22,40 @@ import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * A type for tuples. Might be replaced by existing classes for this purpose, such as from the Scala library.
+ * A type for tuples. Might be replaced by existing classes for this purpose,
+ * such as from the Scala library.
+ * Enforces {@link Serializable} on contained types unlike
+ * {@link org.apache.wayang.core.util.Tuple}
  */
-public class Tuple2<T0, T1> implements Serializable {
+public class Tuple2<T0 extends Serializable, T1 extends Serializable> implements Serializable {
 
-    public T0 field0;
+    private T0 field0;
 
-    public T1 field1;
+    private T1 field1;
 
     public Tuple2() {
     }
 
-    public Tuple2(T0 field0, T1 field1) {
+    public Tuple2(final T0 field0, final T1 field1) {
         this.field0 = field0;
         this.field1 = field1;
     }
 
+    public void setField0(final T0 field0) {
+        this.field0 = field0;
+    }
+
+    public void setField1(final T1 field1) {
+        this.field1 = field1;
+    }
+
     @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || this.getClass() != o.getClass()) return false;
-        Tuple2<?, ?> tuple2 = (Tuple2<?, ?>) o;
+    public boolean equals(final Object o) {
+        if (this == o)
+            return true;
+        if (o == null || this.getClass() != o.getClass())
+            return false;
+        final Tuple2<?, ?> tuple2 = (Tuple2<?, ?>) o;
         return Objects.equals(this.field0, tuple2.field0) &&
                 Objects.equals(this.field1, tuple2.field1);
     }

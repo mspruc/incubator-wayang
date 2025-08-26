@@ -29,7 +29,9 @@ import org.apache.wayang.jdbc.channels.SqlQueryChannel;
 import org.apache.wayang.jdbc.test.HsqldbJoinOperator;
 import org.apache.wayang.jdbc.test.HsqldbPlatform;
 import org.apache.wayang.jdbc.test.HsqldbTableSource;
-import org.apache.wayang.core.function.TransformationDescriptor;
+import org.apache.wayang.core.function.FunctionDescriptor.SerializableFunction;
+import org.apache.wayang.core.impl.IJavaImpl;
+import org.apache.wayang.core.impl.ISqlImpl;
 import org.apache.wayang.jdbc.execution.JdbcExecutor;
 import org.apache.wayang.core.profiling.NoInstrumentationStrategy;
 import org.apache.wayang.core.optimizer.DefaultOptimizationContext;
@@ -50,19 +52,22 @@ import static org.mockito.Mockito.when;
 class JdbcJoinOperatorTest extends OperatorTestBase {
     @Test
     void testWithHsqldb() throws SQLException {
-        Configuration configuration = new Configuration();
+        final Configuration configuration = new Configuration();
 
-        Job job = mock(Job.class);
+        final Job job = mock(Job.class);
         when(job.getConfiguration()).thenReturn(configuration);
-        when(job.getCrossPlatformExecutor()).thenReturn(new CrossPlatformExecutor(job, new NoInstrumentationStrategy()));
-        SqlQueryChannel.Descriptor sqlChannelDescriptor = HsqldbPlatform.getInstance().getSqlQueryChannelDescriptor();
+        when(job.getCrossPlatformExecutor())
+                .thenReturn(new CrossPlatformExecutor(job, new NoInstrumentationStrategy()));
+        final SqlQueryChannel.Descriptor sqlChannelDescriptor = HsqldbPlatform.getInstance()
+                .getSqlQueryChannelDescriptor();
 
-        HsqldbPlatform hsqldbPlatform = new HsqldbPlatform();
+        final HsqldbPlatform hsqldbPlatform = new HsqldbPlatform();
 
-        ExecutionStage sqlStage = mock(ExecutionStage.class);
+        final ExecutionStage sqlStage = mock(ExecutionStage.class);
 
         // Create some test data.
-        try (Connection jdbcConnection = hsqldbPlatform.createDatabaseDescriptor(configuration).createJdbcConnection()) {
+        try (Connection jdbcConnection = hsqldbPlatform.createDatabaseDescriptor(configuration)
+                .createJdbcConnection()) {
             final Statement statement = jdbcConnection.createStatement();
             statement.execute("CREATE TABLE testA (a INT, b VARCHAR(6));");
             statement.execute("INSERT INTO testA VALUES (0, 'zero');");
@@ -70,31 +75,22 @@ class JdbcJoinOperatorTest extends OperatorTestBase {
             statement.execute("INSERT INTO testB VALUES (0, 100);");
         }
 
-        JdbcTableSource tableSourceA = new HsqldbTableSource("testA");
-        JdbcTableSource tableSourceB = new HsqldbTableSource("testB");
+        final JdbcTableSource tableSourceA = new HsqldbTableSource("testA");
+        final JdbcTableSource tableSourceB = new HsqldbTableSource("testB");
 
-        ExecutionTask tableSourceATask = new ExecutionTask(tableSourceA);
+        final ExecutionTask tableSourceATask = new ExecutionTask(tableSourceA);
         tableSourceATask.setOutputChannel(0, new SqlQueryChannel(sqlChannelDescriptor, tableSourceA.getOutput(0)));
         tableSourceATask.setStage(sqlStage);
 
-        ExecutionTask tableSourceBTask = new ExecutionTask(tableSourceB);
+        final ExecutionTask tableSourceBTask = new ExecutionTask(tableSourceB);
         tableSourceBTask.setOutputChannel(0, new SqlQueryChannel(sqlChannelDescriptor, tableSourceB.getOutput(0)));
         tableSourceBTask.setStage(sqlStage);
 
-        final ExecutionOperator joinOperator = new HsqldbJoinOperator<Integer>(
-            new TransformationDescriptor<Record, Integer>(
-                (record) -> (Integer) record.getField(0),
-                Record.class,
-                Integer.class
-            ).withSqlImplementation("testA", "a"),
-            new TransformationDescriptor<Record, Integer>(
-                (record) -> (Integer) record.getField(0),
-                Record.class,
-                Integer.class
-            ).withSqlImplementation("testB", "a")
-        );
+        final ExecutionOperator joinOperator = new HsqldbJoinOperator(
+                new SqlJavaDescriptor("testA", rec -> (Integer) rec.getField(0)),
+                new SqlJavaDescriptor("testB", rec -> (Integer) rec.getField(0)));
 
-        ExecutionTask joinTask = new ExecutionTask(joinOperator);
+        final ExecutionTask joinTask = new ExecutionTask(joinOperator);
         tableSourceATask.getOutputChannel(0).addConsumer(joinTask, 0);
         tableSourceBTask.getOutputChannel(0).addConsumer(joinTask, 1);
         joinTask.setOutputChannel(0, new SqlQueryChannel(sqlChannelDescriptor, joinOperator.getOutput(0)));
@@ -103,24 +99,38 @@ class JdbcJoinOperatorTest extends OperatorTestBase {
         when(sqlStage.getStartTasks()).thenReturn(Collections.singleton(tableSourceATask));
         when(sqlStage.getTerminalTasks()).thenReturn(Collections.singleton(joinTask));
 
-        ExecutionStage nextStage = mock(ExecutionStage.class);
+        final ExecutionStage nextStage = mock(ExecutionStage.class);
 
-        SqlToStreamOperator sqlToStreamOperator = new SqlToStreamOperator(HsqldbPlatform.getInstance());
-        ExecutionTask sqlToStreamTask = new ExecutionTask(sqlToStreamOperator);
+        final SqlToStreamOperator sqlToStreamOperator = new SqlToStreamOperator(HsqldbPlatform.getInstance());
+        final ExecutionTask sqlToStreamTask = new ExecutionTask(sqlToStreamOperator);
         joinTask.getOutputChannel(0).addConsumer(sqlToStreamTask, 0);
         sqlToStreamTask.setStage(nextStage);
 
-        JdbcExecutor executor = new JdbcExecutor(HsqldbPlatform.getInstance(), job);
+        final JdbcExecutor executor = new JdbcExecutor(HsqldbPlatform.getInstance(), job);
         executor.execute(sqlStage, new DefaultOptimizationContext(job), job.getCrossPlatformExecutor());
 
-        SqlQueryChannel.Instance sqlQueryChannelInstance =
-                (SqlQueryChannel.Instance) job.getCrossPlatformExecutor().getChannelInstance(sqlToStreamTask.getInputChannel(0));
+        final SqlQueryChannel.Instance sqlQueryChannelInstance = (SqlQueryChannel.Instance) job
+                .getCrossPlatformExecutor()
+                .getChannelInstance(sqlToStreamTask.getInputChannel(0));
 
         System.out.println();
 
         assertEquals(
-            "SELECT * FROM testA JOIN testA ON testB.a=testA.a;",
-            sqlQueryChannelInstance.getSqlQuery()
-        );
+                "SELECT * FROM testA JOIN testA ON testB.a=testA.a;",
+                sqlQueryChannelInstance.getSqlQuery());
+    }
+
+    record SqlJavaDescriptor(String sql, SerializableFunction<Record, Integer> impl)
+            implements ISqlImpl, IJavaImpl<SerializableFunction<Record, Integer>> {
+
+        @Override
+        public String getSqlClause() {
+            return sql;
+        }
+
+        @Override
+        public SerializableFunction<Record, Integer> getImpl() {
+            return impl;
+        }
     }
 }

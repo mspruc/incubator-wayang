@@ -31,6 +31,7 @@ import org.apache.wayang.core.util.ReflectionUtils;
 import org.apache.wayang.genericjdbc.operators.GenericJdbcTableSource;
 import org.apache.wayang.java.Java;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 
@@ -38,9 +39,7 @@ import java.util.Collection;
 * Joining 2 tables , person and orders using GenericJdbc Plugin.
  * Tables reside on multiple instances of mysql platform
  * Test to check the working of generic jdbc plugin for multiple instances of same DBMS */
-
-
-
+//TODO: convert test to Junit test
 public class SqlTest2 {
 
 
@@ -70,16 +69,16 @@ public class SqlTest2 {
         TableSource person = new GenericJdbcTableSource("mysql1","person");
         TableSource orders = new GenericJdbcTableSource("mysql2","orders");
 
-        FunctionDescriptor.SerializableFunction<Record, Object> keyFunctionPerson = record -> record.getField(0);
-        FunctionDescriptor.SerializableFunction<Record, Object> keyFunctionOrders = record -> record.getField(1);
+        FunctionDescriptor.SerializableFunction<Record, Serializable> keyFunctionPerson = record -> (Serializable) record.getField(0);
+        FunctionDescriptor.SerializableFunction<Record, Serializable> keyFunctionOrders = record -> (Serializable) record.getField(1);
 
 
-        JoinOperator<Record, Record, Object> joinOperator = new JoinOperator<>(
+        JoinOperator<Record, Record, Serializable> joinOperator = new JoinOperator<>(
                 keyFunctionPerson,
                 keyFunctionOrders,
                 Record.class,
                 Record.class,
-                Object.class
+                Serializable.class
         );
 
         LocalCallbackSink<Tuple2<Record, Record>> sink = LocalCallbackSink.createCollectingSink(collector, ReflectionUtils.specify(Tuple2.class));

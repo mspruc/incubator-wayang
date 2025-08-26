@@ -24,7 +24,7 @@ import java.util.Collections
 
 import org.apache.spark.graphx.Graph
 import org.apache.spark.graphx.lib.PageRank
-import org.apache.wayang.basic.data.{Tuple2 => T2}
+import org.apache.wayang.core.util.{Tuple => T2}
 import org.apache.wayang.basic.operators.PageRankOperator
 import org.apache.wayang.core.optimizer.costs.LoadProfileEstimators
 import org.apache.wayang.core.optimizer.{OptimizationContext, ProbabilisticDoubleInterval}
@@ -52,7 +52,7 @@ class SparkPageRankOperator(_numIterations: Int,
     val output = outputs(0).asInstanceOf[RddChannel#Instance]
 
     val edgeRdd = input.provideRdd[T2[JavaLong, JavaLong]]().rdd
-      .map(edge => (edge.field0.longValue, edge.field1.longValue))
+      .map(edge => (edge.getField0().longValue, edge.getField1().longValue))
     val graph = Graph.fromEdgeTuples(edgeRdd, null)
     val prGraph = PageRank.run(graph, this.numIterations, 1d - this.dampingFactor)
     val resultRdd = prGraph.vertices

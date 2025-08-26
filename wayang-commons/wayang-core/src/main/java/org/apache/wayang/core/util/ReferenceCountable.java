@@ -18,11 +18,13 @@
 
 package org.apache.wayang.core.util;
 
+import java.io.Serializable;
+
 /**
  * This interface provides a reference-counting scheme, e.g., to manage allocated external resources. The initial
  * number of references after the object instantiation is always {@code 0}.
  */
-public interface ReferenceCountable {
+public interface ReferenceCountable extends Serializable {
 
     /**
      * Tells the number of references on this instance.

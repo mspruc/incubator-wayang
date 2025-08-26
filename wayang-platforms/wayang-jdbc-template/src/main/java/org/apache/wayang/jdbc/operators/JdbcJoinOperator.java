@@ -18,41 +18,53 @@
 
 package org.apache.wayang.jdbc.operators;
 
-import org.apache.wayang.core.util.Tuple;
 import org.apache.wayang.basic.data.Record;
-import org.apache.wayang.core.types.DataSetType;
+import org.apache.wayang.basic.data.Tuple2;
 import org.apache.wayang.basic.operators.JoinOperator;
-import org.apache.wayang.core.function.TransformationDescriptor;
-import org.apache.wayang.jdbc.compiler.FunctionCompiler;
-import org.apache.wayang.core.api.Configuration;
-import org.apache.wayang.core.optimizer.costs.LoadProfileEstimator;
-import org.apache.wayang.core.optimizer.costs.LoadProfileEstimators;
-
-import java.sql.Connection;
-import java.util.Optional;
+import org.apache.wayang.core.impl.ISqlImpl;
+import org.apache.wayang.core.plan.wayangplan.BinaryToUnaryOperator;
+import org.apache.wayang.core.types.DataSetType;
 
 /**
  * PostgreSQL implementation for the {@link JoinOperator}.
  */
-public abstract class JdbcJoinOperator<KeyType>
-    extends JoinOperator<Record, Record, KeyType>
-    implements JdbcExecutionOperator {
+public abstract class JdbcJoinOperator
+        extends BinaryToUnaryOperator<Record, Record, Tuple2<Record, Record>>
+        implements JdbcExecutionOperator {
+
+    /*
+     * 
+     */
+    private static DataSetType<Tuple2<Record, Record>> createOutputDataSetType() {
+        return DataSetType.createDefaultUnchecked(Tuple2.class);
+    }
+
+    private final ISqlImpl keyDescriptor0;
+    private final ISqlImpl keyDescriptor1;
+
+    public ISqlImpl getKeyDescriptor0() {
+        return keyDescriptor0;
+    }
+
+    public ISqlImpl getKeyDescriptor1() {
+        return keyDescriptor1;
+    }
 
     /**
      * Creates a new instance.
      *
      * @see JoinOperator#JoinOperator(Record, Record...)
      */
-    public JdbcJoinOperator(
-        TransformationDescriptor<Record, KeyType> keyDescriptor0,
-        TransformationDescriptor<Record, KeyType> keyDescriptor1
-    ) {
-        super(
-            keyDescriptor0,
-            keyDescriptor1,
-            DataSetType.createDefault(Record.class),
-            DataSetType.createDefault(Record.class)
-        );
+    protected JdbcJoinOperator(
+            final ISqlImpl keyDescriptor0,
+            final ISqlImpl keyDescriptor1) {
+        super(DataSetType.createDefault(Record.class),
+                DataSetType.createDefault(Record.class),
+                JdbcJoinOperator.createOutputDataSetType(),
+                true);
+
+        this.keyDescriptor0 = keyDescriptor0;
+        this.keyDescriptor1 = keyDescriptor1;
     }
 
     /**
@@ -60,22 +72,13 @@ public abstract class JdbcJoinOperator<KeyType>
      *
      * @param that that should be copied
      */
-    public JdbcJoinOperator(JoinOperator<Record, Record, KeyType> that) {
-        super(that);
-    }
-
-    @Override
-    public String createSqlClause(Connection connection, FunctionCompiler compiler) {
-        final Tuple<String, String> left = this.keyDescriptor0.getSqlImplementation();
-        final Tuple<String, String> right = this.keyDescriptor1.getSqlImplementation();
-        final String leftTableName = left.field0;
-        final String leftKey = left.field1;
-        final String rightTableName = right.field0;
-        final String rightKey = right.field1;
-
-        return "JOIN " + leftTableName + " ON " +
-            rightTableName + "." + rightKey
-            + "=" + leftTableName + "." + leftKey;
+    protected JdbcJoinOperator(final JdbcJoinOperator that) {
+        super(DataSetType.createDefault(Record.class),
+                DataSetType.createDefault(Record.class),
+                JdbcJoinOperator.createOutputDataSetType(),
+                true);
+        this.keyDescriptor0 = ISqlImpl.of(that.getKeyDescriptor0().getSqlClause());
+        this.keyDescriptor1 = ISqlImpl.of(that.getKeyDescriptor1().getSqlClause());
     }
 
     @Override
@@ -83,12 +86,4 @@ public abstract class JdbcJoinOperator<KeyType>
         return String.format("wayang.%s.join.load", this.getPlatform().getPlatformId());
     }
 
-    @Override
-    public Optional<LoadProfileEstimator> createLoadProfileEstimator(Configuration configuration) {
-        final Optional<LoadProfileEstimator> optEstimator =
-                JdbcExecutionOperator.super.createLoadProfileEstimator(configuration);
-        LoadProfileEstimators.nestUdfEstimator(optEstimator, this.keyDescriptor0, configuration);
-        LoadProfileEstimators.nestUdfEstimator(optEstimator, this.keyDescriptor1, configuration);
-        return optEstimator;
-    }
 }

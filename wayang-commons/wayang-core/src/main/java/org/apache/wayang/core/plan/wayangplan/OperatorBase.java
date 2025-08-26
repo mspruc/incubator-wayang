@@ -39,7 +39,6 @@ import org.apache.wayang.core.platform.Platform;
 import org.apache.wayang.core.types.DataSetType;
 import org.apache.wayang.core.util.Tuple;
 
-import java.io.Serializable;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Collections;
@@ -51,7 +50,7 @@ import java.util.function.Supplier;
 /**
  * Helper class for the implementation of the {@link Operator} interface.
  */
-public abstract class OperatorBase implements Operator, Serializable {
+public abstract class OperatorBase implements Operator {
 
     public static final List<Tuple<Class<?>, Supplier<?>>> STANDARD_OPERATOR_ARGS = Arrays.asList(
             new Tuple<>(DataSetType.class, DataSetType::none),
@@ -95,7 +94,7 @@ public abstract class OperatorBase implements Operator, Serializable {
      */
     private String name;
 
-    public OperatorBase(InputSlot<?>[] inputSlots, OutputSlot<?>[] outputSlots, boolean isSupportingBroadcastInputs) {
+    protected OperatorBase(InputSlot<?>[] inputSlots, OutputSlot<?>[] outputSlots, boolean isSupportingBroadcastInputs) {
         this.container = null;
         this.isSupportingBroadcastInputs = isSupportingBroadcastInputs;
         this.inputSlots = inputSlots;
@@ -103,7 +102,7 @@ public abstract class OperatorBase implements Operator, Serializable {
         this.cardinalityEstimators = new CardinalityEstimator[this.outputSlots.length];
     }
 
-    public OperatorBase(int numInputSlots, int numOutputSlots, boolean isSupportingBroadcastInputs) {
+    protected OperatorBase(int numInputSlots, int numOutputSlots, boolean isSupportingBroadcastInputs) {
         this(new InputSlot[numInputSlots], new OutputSlot[numOutputSlots], isSupportingBroadcastInputs);
     }
 
@@ -123,7 +122,7 @@ public abstract class OperatorBase implements Operator, Serializable {
         System.arraycopy(that.cardinalityEstimators, 0, this.cardinalityEstimators, 0, this.getNumOutputs());
     }
 
-    public OperatorBase() {}
+    protected OperatorBase() {}
 
     @Override
     public InputSlot<?>[] getAllInputs() {

@@ -20,6 +20,7 @@ package org.apache.wayang.core.util;
 
 import org.apache.commons.lang3.Validate;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -250,12 +251,11 @@ public class WayangCollections {
         }
     }
 
-    public static <K, V> Map<K, V> createMap(Tuple<K, V>... keyValuePairs) {
+    public static <K extends Serializable, V extends Serializable> Map<K, V> createMap(Tuple<K, V>... keyValuePairs) {
         Map<K, V> result = new HashMap<>(keyValuePairs.length);
         for (Tuple<K, V> keyValuePair : keyValuePairs) {
             result.put(keyValuePair.getField0(), keyValuePair.getField1());
         }
         return result;
     }
-
 }

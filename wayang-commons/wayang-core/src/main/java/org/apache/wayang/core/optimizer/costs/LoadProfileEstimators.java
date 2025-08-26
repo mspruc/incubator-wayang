@@ -21,6 +21,8 @@ package org.apache.wayang.core.optimizer.costs;
 import org.apache.wayang.core.api.Configuration;
 import org.apache.wayang.core.api.exception.WayangException;
 import org.apache.wayang.core.function.FunctionDescriptor;
+import org.apache.wayang.core.function.FunctionDescriptor.SerializableFunction;
+import org.apache.wayang.core.impl.IJavaImpl;
 import org.apache.wayang.core.optimizer.OptimizationContext;
 import org.apache.wayang.core.optimizer.OptimizationUtils;
 import org.apache.wayang.core.optimizer.cardinality.CardinalityEstimate;
@@ -42,7 +44,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.ToDoubleBiFunction;
 import java.util.function.ToDoubleFunction;
 import java.util.function.ToLongBiFunction;
 import java.util.stream.Collectors;
@@ -479,6 +480,24 @@ public class LoadProfileEstimators {
         final LoadProfileEstimator subestimator = configuration
                 .getFunctionLoadProfileEstimatorProvider()
                 .provideFor(functionDescriptor);
+        mainEstimator.nest(subestimator);
+    }
+
+    /**
+     * Utility to nest the {@link LoadProfileEstimator} of a {@link IJavaImpl}.
+     *
+     * @param mainEstimatorOpt   an optional {@link LoadProfileEstimator}; should be a {@link NestableLoadProfileEstimator}
+     * @param functionDescriptor whose {@link LoadProfileEstimator} should be nested
+     * @param configuration      provides the UDF {@link LoadProfileEstimator}
+     */
+    public static void nestUdfEstimator(Optional<LoadProfileEstimator> mainEstimatorOpt,
+                                        IJavaImpl<?> javaImpl,
+                                        Configuration configuration) {
+        final LoadProfileEstimator mainEstimator = mainEstimatorOpt.orElse(null);
+        if (mainEstimator == null || !(mainEstimator instanceof NestableLoadProfileEstimator)) return;
+        final LoadProfileEstimator subestimator = configuration
+                .getJavaImplLoadProfileEstimatorProvider()
+                .provideFor(javaImpl);
         mainEstimator.nest(subestimator);
 
     }

@@ -28,14 +28,16 @@ import java.io.Serializable;
 import java.util.function.Function;
 
 /**
- * This descriptor pertains to functions that consume a single data unit and output a single data unit.
+ * This descriptor pertains to functions that consume a single data unit and
+ * output a single data unit.
  *
  * @param <Input>  input type of the transformation function
  * @param <Output> output type of the transformation function
  */
-public class TransformationDescriptor<Input, Output> extends FunctionDescriptor implements Serializable {
+public class TransformationDescriptor<Input, Output> extends FunctionDescriptor {
 
-    public TransformationDescriptor() {}
+    public TransformationDescriptor() {
+    }
 
     protected BasicDataUnitType<Input> inputType;
 
@@ -45,39 +47,37 @@ public class TransformationDescriptor<Input, Output> extends FunctionDescriptor 
 
     private Tuple<String, String> sqlImplementation;
 
-    public TransformationDescriptor(FunctionDescriptor.SerializableFunction<Input, Output> javaImplementation,
-                                    Class<Input> inputTypeClass,
-                                    Class<Output> outputTypeClass) {
+    public TransformationDescriptor(final FunctionDescriptor.SerializableFunction<Input, Output> javaImplementation,
+            final Class<Input> inputTypeClass,
+            final Class<Output> outputTypeClass) {
         this(javaImplementation,
                 BasicDataUnitType.createBasic(inputTypeClass),
                 BasicDataUnitType.createBasic(outputTypeClass));
     }
 
-    public TransformationDescriptor(FunctionDescriptor.SerializableFunction<Input, Output> javaImplementation,
-                                    Class<Input> inputTypeClass,
-                                    Class<Output> outputTypeClass,
-                                    LoadProfileEstimator loadProfileEstimator) {
+    public TransformationDescriptor(final FunctionDescriptor.SerializableFunction<Input, Output> javaImplementation,
+            final Class<Input> inputTypeClass,
+            final Class<Output> outputTypeClass,
+            final LoadProfileEstimator loadProfileEstimator) {
         this(javaImplementation,
                 BasicDataUnitType.createBasic(inputTypeClass),
                 BasicDataUnitType.createBasic(outputTypeClass),
                 loadProfileEstimator);
     }
 
-    public TransformationDescriptor(FunctionDescriptor.SerializableFunction<Input, Output> javaImplementation,
-                                    BasicDataUnitType<Input> inputType,
-                                    BasicDataUnitType<Output> outputType) {
+    public TransformationDescriptor(final FunctionDescriptor.SerializableFunction<Input, Output> javaImplementation,
+            final BasicDataUnitType<Input> inputType,
+            final BasicDataUnitType<Output> outputType) {
         this(javaImplementation, inputType, outputType,
                 new NestableLoadProfileEstimator(
                         LoadEstimator.createFallback(1, 1),
-                        LoadEstimator.createFallback(1, 1)
-                )
-        );
+                        LoadEstimator.createFallback(1, 1)));
     }
 
-    public TransformationDescriptor(FunctionDescriptor.SerializableFunction<Input, Output> javaImplementation,
-                                    BasicDataUnitType<Input> inputType,
-                                    BasicDataUnitType<Output> outputType,
-                                    LoadProfileEstimator loadProfileEstimator) {
+    public TransformationDescriptor(final FunctionDescriptor.SerializableFunction<Input, Output> javaImplementation,
+            final BasicDataUnitType<Input> inputType,
+            final BasicDataUnitType<Output> outputType,
+            final LoadProfileEstimator loadProfileEstimator) {
         super(loadProfileEstimator);
         this.javaImplementation = javaImplementation;
         this.inputType = inputType;
@@ -85,7 +85,8 @@ public class TransformationDescriptor<Input, Output> extends FunctionDescriptor 
     }
 
     /**
-     * This is function is not built to last. It is thought to help out devising programs while we are still figuring
+     * This is function is not built to last. It is thought to help out devising
+     * programs while we are still figuring
      * out how to express functions in a platform-independent way.
      *
      * @return a function that can perform the reduce
@@ -95,29 +96,36 @@ public class TransformationDescriptor<Input, Output> extends FunctionDescriptor 
     }
 
     /**
-     * This function is not built to last. It is thought to help out devising programs while we are still figuring
+     * This function is not built to last. It is thought to help out devising
+     * programs while we are still figuring
      * out how to express functions in a platform-independent way.
      *
-     * @return a Tuple holding tableName and a SQL predicate applicable in a {@code JOIN} clause
+     * @return a Tuple holding tableName and a SQL predicate applicable in a
+     *         {@code JOIN} clause
      */
     public Tuple<String, String> getSqlImplementation() {
         return this.sqlImplementation;
     }
 
     /**
-     * This function is not built to last. It is thought to help out devising programs while we are still figuring
+     * This function is not built to last. It is thought to help out devising
+     * programs while we are still figuring
      * out how to express functions in a platform-independent way.
      *
-     * @param tableName a SQL table name applicable in a {@code JOIN TABLE ON}.
-     * @param sqlImplementation a SQL predicate applicable in a {@code WHERE} clause representing this predicate
+     * @param tableName         a SQL table name applicable in a
+     *                          {@code JOIN TABLE ON}.
+     * @param sqlImplementation a SQL predicate applicable in a {@code WHERE} clause
+     *                          representing this predicate
      */
-    public TransformationDescriptor<Input, Output> withSqlImplementation(String tableName, String sqlImplementation) {
+    public TransformationDescriptor<Input, Output> withSqlImplementation(final String tableName,
+            final String sqlImplementation) {
         this.sqlImplementation = new Tuple<String, String>(tableName, sqlImplementation);
         return this;
     }
 
     /**
-     * In generic code, we do not have the type parameter values of operators, functions etc. This method avoids casting issues.
+     * In generic code, we do not have the type parameter values of operators,
+     * functions etc. This method avoids casting issues.
      *
      * @return this instance with type parameters set to {@link Object}
      */

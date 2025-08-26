@@ -28,6 +28,7 @@ import org.apache.wayang.core.types.DataSetType;
 import org.apache.wayang.spark.operators.SparkJoinOperator;
 import org.apache.wayang.spark.platform.SparkPlatform;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
 
@@ -46,14 +47,14 @@ public class JoinMapping implements Mapping {
     }
 
     private SubplanPattern createSubplanPattern() {
-        final OperatorPattern operatorPattern = new OperatorPattern<>(
-                "join", new JoinOperator<>(null, null, DataSetType.none(), DataSetType.none()), false
+        final OperatorPattern<?> operatorPattern = new OperatorPattern<>(
+                "join", new JoinOperator<>(null, null, DataSetType.createDefault(Serializable.class), DataSetType.createDefault(Serializable.class)), false
         );
         return SubplanPattern.createSingleton(operatorPattern);
     }
 
     private ReplacementSubplanFactory createReplacementSubplanFactory() {
-        return new ReplacementSubplanFactory.OfSingleOperators<JoinOperator<Object, Object, Object>>(
+        return new ReplacementSubplanFactory.OfSingleOperators<JoinOperator<Serializable, Serializable, Serializable>>(
                 (matchedOperator, epoch) -> new SparkJoinOperator<>(matchedOperator).at(epoch)
         );
     }

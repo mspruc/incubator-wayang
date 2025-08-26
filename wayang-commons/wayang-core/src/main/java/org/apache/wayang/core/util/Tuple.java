@@ -18,29 +18,41 @@
 
 package org.apache.wayang.core.util;
 
+import java.io.Serializable;
 import java.util.Objects;
 
 /**
  * A helper data structure to manage two values without creating new classes.
+ * Does not have strict serialization guarantees like {@link Tuple2}
+ * @param T0 type of field 0
+ * @param T1 type of field 1
+ * <p> Will be serializable if T0 and T1 are serializable.
+ * 
  */
-public class Tuple<T0, T1> {
+public class Tuple<T0, T1> implements Serializable {
+    private T0 field0;
+    private T1 field1;
 
-    public T0 field0;
+    public Tuple() {
+    }
 
-    public T1 field1;
-
-    public Tuple() { }
-
-    public Tuple(T0 field0, T1 field1) {
+    /**
+     * 
+     * @param field0
+     * @param field1
+     */
+    public Tuple(final T0 field0, final T1 field1) {
         this.field0 = field0;
         this.field1 = field1;
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || this.getClass() != o.getClass()) return false;
-        Tuple<?, ?> tuple = (Tuple<?, ?>) o;
+    public boolean equals(final Object o) {
+        if (this == o)
+            return true;
+        if (o == null || this.getClass() != o.getClass())
+            return false;
+        final Tuple<?, ?> tuple = (Tuple<?, ?>) o;
         return Objects.equals(this.field0, tuple.field0) &&
                 Objects.equals(this.field1, tuple.field1);
     }
@@ -59,7 +71,7 @@ public class Tuple<T0, T1> {
         return this.field0;
     }
 
-    public void setField0(T0 field0) {
+    public void setField0(final T0 field0) {
         this.field0 = field0;
     }
 
@@ -67,7 +79,7 @@ public class Tuple<T0, T1> {
         return this.field1;
     }
 
-    public void setField1(T1 field1) {
+    public void setField1(final T1 field1) {
         this.field1 = field1;
     }
 }

@@ -18,6 +18,10 @@
 
 package org.apache.wayang.spark.mapping;
 
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.Collections;
+
 import org.apache.wayang.basic.operators.CartesianOperator;
 import org.apache.wayang.core.mapping.Mapping;
 import org.apache.wayang.core.mapping.OperatorPattern;
@@ -27,9 +31,6 @@ import org.apache.wayang.core.mapping.SubplanPattern;
 import org.apache.wayang.core.types.DataSetType;
 import org.apache.wayang.spark.operators.SparkCartesianOperator;
 import org.apache.wayang.spark.platform.SparkPlatform;
-
-import java.util.Collection;
-import java.util.Collections;
 
 /**
  * Mapping from {@link CartesianOperator} to {@link SparkCartesianOperator}.
@@ -41,20 +42,19 @@ public class CartesianMapping implements Mapping {
         return Collections.singleton(new PlanTransformation(
                 this.createSubplanPattern(),
                 this.createReplacementSubplanFactory(),
-                SparkPlatform.getInstance()
-        ));
+                SparkPlatform.getInstance()));
     }
 
     private SubplanPattern createSubplanPattern() {
-        final OperatorPattern operatorPattern = new OperatorPattern(
-                "cartesian", new CartesianOperator<>(DataSetType.none(), DataSetType.none()), false
-        );
+        final OperatorPattern<?> operatorPattern = new OperatorPattern<>(
+                "cartesian", new CartesianOperator<>(DataSetType.createDefault(Serializable.class),
+                        DataSetType.createDefault(Serializable.class)),
+                false);
         return SubplanPattern.createSingleton(operatorPattern);
     }
 
     private ReplacementSubplanFactory createReplacementSubplanFactory() {
-        return new ReplacementSubplanFactory.OfSingleOperators<CartesianOperator>(
-                (matchedOperator, epoch) -> new SparkCartesianOperator<>(matchedOperator).at(epoch)
-        );
+        return new ReplacementSubplanFactory.OfSingleOperators<CartesianOperator<Serializable, Serializable>>(
+                (matchedOperator, epoch) -> new SparkCartesianOperator<>(matchedOperator).at(epoch));
     }
 }

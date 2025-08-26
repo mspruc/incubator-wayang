@@ -19,11 +19,16 @@
 package org.apache.wayang.spark.mapping.ml;
 
 import org.apache.wayang.basic.operators.ModelTransformOperator;
-import org.apache.wayang.core.mapping.*;
+import org.apache.wayang.core.mapping.Mapping;
+import org.apache.wayang.core.mapping.OperatorPattern;
+import org.apache.wayang.core.mapping.PlanTransformation;
+import org.apache.wayang.core.mapping.ReplacementSubplanFactory;
+import org.apache.wayang.core.mapping.SubplanPattern;
 import org.apache.wayang.core.types.DataSetType;
 import org.apache.wayang.spark.operators.ml.SparkModelTransformOperator;
 import org.apache.wayang.spark.platform.SparkPlatform;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
 
@@ -44,14 +49,14 @@ public class ModelTransformMapping implements Mapping {
     }
 
     private SubplanPattern createSubplanPattern() {
-        final OperatorPattern operatorPattern = new OperatorPattern(
+        final OperatorPattern<?> operatorPattern = new OperatorPattern(
                 "transform", new ModelTransformOperator(DataSetType.none(), DataSetType.none()), false
         );
         return SubplanPattern.createSingleton(operatorPattern);
     }
 
     private ReplacementSubplanFactory createReplacementSubplanFactory() {
-        return new ReplacementSubplanFactory.OfSingleOperators<ModelTransformOperator<Object, Object>>(
+        return new ReplacementSubplanFactory.OfSingleOperators<ModelTransformOperator<Serializable, Serializable>>(
                 (matchedOperator, epoch) -> new SparkModelTransformOperator<>(matchedOperator).at(epoch)
         );
     }

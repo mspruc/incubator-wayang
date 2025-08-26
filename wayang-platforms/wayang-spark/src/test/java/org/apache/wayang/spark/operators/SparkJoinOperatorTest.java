@@ -46,37 +46,34 @@ class SparkJoinOperatorTest extends SparkOperatorTestBase {
         RddChannel.Instance output = this.createRddChannelInstance();
 
         // Build the Cartesian operator.
-        SparkJoinOperator<Tuple2, Tuple2, Integer> join =
-                new SparkJoinOperator<>(
-                        DataSetType.createDefaultUnchecked(Tuple2.class),
-                        DataSetType.createDefaultUnchecked(Tuple2.class),
-                        new ProjectionDescriptor<>(
-                                DataUnitType.createBasicUnchecked(Tuple2.class),
-                                DataUnitType.createBasic(Integer.class),
-                                "field0"),
-                        new ProjectionDescriptor<>(
-                                DataUnitType.createBasicUnchecked(Tuple2.class),
-                                DataUnitType.createBasic(Integer.class),
-                                "field1"));
+        SparkJoinOperator<Tuple2, Tuple2, Integer> join = new SparkJoinOperator<>(
+                DataSetType.createDefaultUnchecked(Tuple2.class),
+                DataSetType.createDefaultUnchecked(Tuple2.class),
+                new ProjectionDescriptor<>(
+                        DataUnitType.createBasicUnchecked(Tuple2.class),
+                        DataUnitType.createBasic(Integer.class),
+                        "field0"),
+                new ProjectionDescriptor<>(
+                        DataUnitType.createBasicUnchecked(Tuple2.class),
+                        DataUnitType.createBasic(Integer.class),
+                        "field1"));
 
         // Set up the ChannelInstances.
-        final ChannelInstance[] inputs = new ChannelInstance[]{input0, input1};
-        final ChannelInstance[] outputs = new ChannelInstance[]{output};
+        final ChannelInstance[] inputs = new ChannelInstance[] { input0, input1 };
+        final ChannelInstance[] outputs = new ChannelInstance[] { output };
 
         // Execute.
         this.evaluate(join, inputs, outputs);
 
         // Verify the outcome.
-        final List<Tuple2<Tuple2<Integer, String>, Tuple2<String, Integer>>> result =
-                output.<Tuple2<Tuple2<Integer, String>, Tuple2<String, Integer>>>provideRdd().collect();
+        final List<Tuple2<Tuple2<Integer, String>, Tuple2<String, Integer>>> result = output
+                .<Tuple2<Tuple2<Integer, String>, Tuple2<String, Integer>>>provideRdd().collect();
+
         assertEquals(5, result.size());
         assertEquals(new Tuple2<>(new Tuple2<>(1, "b"), new Tuple2<>("x", 1)), result.get(0));
         assertEquals(new Tuple2<>(new Tuple2<>(1, "b"), new Tuple2<>("y", 1)), result.get(1));
         assertEquals(new Tuple2<>(new Tuple2<>(1, "c"), new Tuple2<>("x", 1)), result.get(2));
         assertEquals(new Tuple2<>(new Tuple2<>(1, "c"), new Tuple2<>("y", 1)), result.get(3));
         assertEquals(new Tuple2<>(new Tuple2<>(2, "d"), new Tuple2<>("z", 2)), result.get(4));
-
-
     }
-
 }

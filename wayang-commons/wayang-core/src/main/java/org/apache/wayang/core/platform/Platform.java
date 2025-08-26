@@ -18,6 +18,8 @@
 
 package org.apache.wayang.core.platform;
 
+import java.io.Serializable;
+
 import org.apache.wayang.core.api.Configuration;
 import org.apache.wayang.core.api.Job;
 import org.apache.wayang.core.api.exception.WayangException;
@@ -33,46 +35,64 @@ import org.apache.wayang.core.util.ReflectionUtils;
 import org.apache.wayang.core.util.json.WayangJsonObj;
 
 /**
- * A platform describes an execution engine that executes {@link ExecutionOperator}s.
+ * A platform describes an execution engine that executes
+ * {@link ExecutionOperator}s.
  */
-public abstract class Platform {
-
-    private final String name, configName;
+public abstract class Platform implements Serializable {
 
     /**
-     * Loads a specific {@link Platform} implementation. For platforms to interoperate with this method, they must
-     * provide a {@code static}, parameterless method {@code getInstance()} that returns their singleton instance.
+     * Default {@link JsonSerializer} implementation that stores the {@link Class}
+     * of the instance and then
+     * tries to deserialize by invoking the static {@code getInstance()} method.
+     */
+    public static final JsonSerializer<Platform> jsonSerializer = new JsonSerializer<Platform>() {
+
+        @Override
+        public WayangJsonObj serialize(final Platform platform) {
+            // Enforce polymorph serialization.
+            return JsonSerializables.addClassTag(platform, new WayangJsonObj());
+        }
+
+        @Override
+        public Platform deserialize(final WayangJsonObj json, final Class<? extends Platform> cls) {
+            return ReflectionUtils.evaluate(cls.getCanonicalName() + ".getInstance()");
+        }
+    };
+    
+    /**
+     * Loads a specific {@link Platform} implementation. For platforms to
+     * interoperate with this method, they must
+     * provide a {@code static}, parameterless method {@code getInstance()} that
+     * returns their singleton instance.
      *
      * @param platformClassName the class name of the {@link Platform}
      * @return the {@link Platform} instance
      */
-    public static Platform load(String platformClassName) {
+    public static Platform load(final String platformClassName) {
         try {
             return ReflectionUtils.executeStaticArglessMethod(platformClassName, "getInstance");
-        } catch (Exception e) {
+        } catch (final Exception e) {
             throw new WayangException("Could not load platform: " + platformClassName, e);
         }
     }
 
-    protected Platform(String name, String configName) {
+    private final String name;
+
+    private final String configName;
+
+    protected Platform(final String name, final String configName) {
         this.name = name;
         this.configName = configName;
         this.configureDefaults(Configuration.getDefaultConfiguration());
     }
 
     /**
-     * Configure default settings for this instance, e.g., to be able to create {@link LoadProfileToTimeConverter}s.
-     *
-     * @param configuration that should be configured
-     */
-    protected abstract void configureDefaults(Configuration configuration);
-
-    /**
-     * <i>Shortcut.</i> Creates an {@link Executor} using the {@link #getExecutorFactory()}.
+     * <i>Shortcut.</i> Creates an {@link Executor} using the
+     * {@link #getExecutorFactory()}.
      *
      * @return the {@link Executor}
      */
-    public Executor createExecutor(Job job) {
+    public Executor createExecutor(final Job job) {
         return this.getExecutorFactory().create(job);
     }
 
@@ -83,7 +103,8 @@ public abstract class Platform {
     }
 
     /**
-     * Retrieve the name of this instance as it is used in {@link Configuration} keys.
+     * Retrieve the name of this instance as it is used in {@link Configuration}
+     * keys.
      *
      * @return the configuration name of this instance
      */
@@ -91,7 +112,8 @@ public abstract class Platform {
         return this.configName;
     }
 
-    // TODO: Return some more descriptors about the state of the platform (e.g., available machines, RAM, ...)?
+    // TODO: Return some more descriptors about the state of the platform (e.g.,
+    // available machines, RAM, ...)?
 
     @Override
     public String toString() {
@@ -99,15 +121,19 @@ public abstract class Platform {
     }
 
     /**
-     * Tells whether the given constellation of producing and consuming {@link ExecutionTask}, linked by the
-     * {@link Channel} can be handled within a single {@link PlatformExecution} of this {@link Platform}
+     * Tells whether the given constellation of producing and consuming
+     * {@link ExecutionTask}, linked by the
+     * {@link Channel} can be handled within a single {@link PlatformExecution} of
+     * this {@link Platform}
      *
      * @param producerTask an {@link ExecutionTask} running on this {@link Platform}
      * @param channel      links the {@code producerTask} and {@code consumerTask}
-     * @param consumerTask an  {@link ExecutionTask} running on this {@link Platform}
-     * @return whether the {@link ExecutionTask}s can be executed in a single {@link PlatformExecution}
+     * @param consumerTask an {@link ExecutionTask} running on this {@link Platform}
+     * @return whether the {@link ExecutionTask}s can be executed in a single
+     *         {@link PlatformExecution}
      */
-    public boolean isSinglePlatformExecutionPossible(ExecutionTask producerTask, Channel channel, ExecutionTask consumerTask) {
+    public boolean isSinglePlatformExecutionPossible(final ExecutionTask producerTask, final Channel channel,
+            final ExecutionTask consumerTask) {
         assert producerTask.getOperator().getPlatform() == this;
         assert consumerTask.getOperator().getPlatform() == this;
         assert channel.getProducer() == producerTask;
@@ -135,7 +161,7 @@ public abstract class Platform {
      *
      * @param configuration used to warm up
      */
-    public void warmUp(Configuration configuration) {
+    public void warmUp(final Configuration configuration) {
         // Do nothing by default.
     }
 
@@ -144,25 +170,15 @@ public abstract class Platform {
      *
      * @return the milliseconds required to initialize this instance
      */
-    public long getInitializeMillis(Configuration configuration) {
+    public long getInitializeMillis(final Configuration configuration) {
         return 0L;
     }
 
     /**
-     * Default {@link JsonSerializer} implementation that stores the {@link Class} of the instance and then
-     * tries to deserialize by invoking the static {@code getInstance()} method.
+     * Configure default settings for this instance, e.g., to be able to create
+     * {@link LoadProfileToTimeConverter}s.
+     *
+     * @param configuration that should be configured
      */
-    public static final JsonSerializer<Platform> jsonSerializer = new JsonSerializer<Platform>() {
-
-        @Override
-        public WayangJsonObj serialize(Platform platform) {
-            // Enforce polymorph serialization.
-            return JsonSerializables.addClassTag(platform, new WayangJsonObj());
-        }
-
-        @Override
-        public Platform deserialize(WayangJsonObj json, Class<? extends Platform> cls) {
-            return ReflectionUtils.evaluate(cls.getCanonicalName() + ".getInstance()");
-        }
-    };
+    protected abstract void configureDefaults(Configuration configuration);
 }

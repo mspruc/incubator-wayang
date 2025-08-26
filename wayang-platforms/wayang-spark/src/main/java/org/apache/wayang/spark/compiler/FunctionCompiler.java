@@ -29,6 +29,8 @@ import org.apache.wayang.core.function.MapPartitionsDescriptor;
 import org.apache.wayang.core.function.PredicateDescriptor;
 import org.apache.wayang.core.function.ReduceDescriptor;
 import org.apache.wayang.core.function.TransformationDescriptor;
+import org.apache.wayang.core.function.FunctionDescriptor.SerializableFunction;
+import org.apache.wayang.core.impl.IJavaImpl;
 import org.apache.wayang.core.optimizer.OptimizationContext;
 import org.apache.wayang.core.platform.ChannelInstance;
 import org.apache.wayang.spark.execution.SparkExecutionContext;
@@ -100,6 +102,15 @@ public class FunctionCompiler {
      */
     public <T, K> KeyExtractor<T, K> compileToKeyExtractor(TransformationDescriptor<T, K> descriptor) {
         return new KeyExtractor<>(descriptor.getJavaImplementation());
+    }
+
+    /** 
+     * Compile a key extraction.
+     *
+     * @return a compiled function
+     */
+    public <T, K> KeyExtractor<T, K> compileToKeyExtractor(IJavaImpl<SerializableFunction<T,K>> descriptor) {
+        return new KeyExtractor<>(descriptor.getImpl());
     }
 
 

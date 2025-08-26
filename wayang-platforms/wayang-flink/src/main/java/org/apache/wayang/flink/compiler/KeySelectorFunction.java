@@ -22,6 +22,8 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.wayang.core.function.TransformationDescriptor;
+import org.apache.wayang.core.function.FunctionDescriptor.SerializableFunction;
+import org.apache.wayang.core.impl.IJavaImpl;
 
 import java.util.function.Function;
 
@@ -40,6 +42,12 @@ public class KeySelectorFunction<T, K> implements KeySelector<T, K>, ResultTypeQ
 
         this.impl = transformationDescriptor.getJavaImplementation();
         this.key  = transformationDescriptor.getOutputType().getTypeClass();
+        this.typeInformation = TypeInformation.of(this.key);
+    }
+
+    
+    public KeySelectorFunction(final IJavaImpl<SerializableFunction<T,K>> iJavaImpl) {
+        this.impl = iJavaImpl.getImpl();
         this.typeInformation = TypeInformation.of(this.key);
     }
 

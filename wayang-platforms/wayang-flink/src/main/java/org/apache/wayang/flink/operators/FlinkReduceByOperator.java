@@ -18,9 +18,16 @@
 
 package org.apache.wayang.flink.operators;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
 import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.functions.KeySelector;
+
 import org.apache.wayang.basic.operators.ReduceByOperator;
 import org.apache.wayang.core.api.Configuration;
 import org.apache.wayang.core.function.ReduceDescriptor;
@@ -38,30 +45,24 @@ import org.apache.wayang.flink.channels.DataSetChannel;
 import org.apache.wayang.flink.compiler.FunctionCompiler;
 import org.apache.wayang.flink.execution.FlinkExecutor;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-
-
 /**
  * Flink implementation of the {@link ReduceByOperator}.
  */
-public class FlinkReduceByOperator<InputType, KeyType>
-        extends ReduceByOperator<InputType, KeyType>
+public class FlinkReduceByOperator<I, K>
+        extends ReduceByOperator<I, K>
         implements FlinkExecutionOperator {
-
 
     /**
      * Creates a new instance.
      *
-     * @param type             type of the reduce elements (i.e., type of {@link #getInput()} and {@link #getOutput()})
+     * @param type             type of the reduce elements (i.e., type of
+     *                         {@link #getInput()} and {@link #getOutput()})
      * @param keyDescriptor    describes how to extract the key from data units
-     * @param reduceDescriptor describes the reduction to be performed on the elements
+     * @param reduceDescriptor describes the reduction to be performed on the
+     *                         elements
      */
-    public FlinkReduceByOperator(DataSetType<InputType> type, TransformationDescriptor<InputType, KeyType> keyDescriptor,
-                                 ReduceDescriptor<InputType> reduceDescriptor) {
+    public FlinkReduceByOperator(final DataSetType<I> type, final TransformationDescriptor<I, K> keyDescriptor,
+            final ReduceDescriptor<I> reduceDescriptor) {
         super(keyDescriptor, reduceDescriptor, type);
     }
 
@@ -70,36 +71,34 @@ public class FlinkReduceByOperator<InputType, KeyType>
      *
      * @param that that should be copied
      */
-    public FlinkReduceByOperator(ReduceByOperator<InputType, KeyType> that) {
+    public FlinkReduceByOperator(final ReduceByOperator<I, K> that) {
         super(that);
     }
 
     @Override
     public Tuple<Collection<ExecutionLineageNode>, Collection<ChannelInstance>> evaluate(
-            ChannelInstance[] inputs,
-            ChannelInstance[] outputs,
-            FlinkExecutor flinkExecutor,
-            OptimizationContext.OperatorContext operatorContext) {
+            final ChannelInstance[] inputs,
+            final ChannelInstance[] outputs,
+            final FlinkExecutor flinkExecutor,
+            final OptimizationContext.OperatorContext operatorContext) {
         assert inputs.length == this.getNumInputs();
         assert outputs.length == this.getNumOutputs();
 
-        DataSetChannel.Instance input = (DataSetChannel.Instance) inputs[0];
-        DataSetChannel.Instance output = (DataSetChannel.Instance) outputs[0];
+        final DataSetChannel.Instance input = (DataSetChannel.Instance) inputs[0];
+        final DataSetChannel.Instance output = (DataSetChannel.Instance) outputs[0];
 
-        final DataSet<InputType> dataSetInput = input.provideDataSet();
+        final DataSet<I> dataSetInput = input.provideDataSet();
 
-        FunctionCompiler compiler = flinkExecutor.getCompiler();
+        final FunctionCompiler compiler = flinkExecutor.getCompiler();
 
-        KeySelector<InputType, KeyType> keySelector = compiler.compileKeySelector(this.keyDescriptor);
+        final KeySelector<I, K> keySelector = compiler.compileKeySelector(this.keyDescriptor);
 
-        ReduceFunction<InputType> reduceFunction = compiler.compile(this.reduceDescriptor);
+        final ReduceFunction<I> reduceFunction = compiler.compile(this.reduceDescriptor);
 
-
-        DataSet<InputType> dataSetOutput =
-                dataSetInput
-                        .groupBy(keySelector)
-                        .reduce(reduceFunction)
-                        .setParallelism(flinkExecutor.fee.getParallelism());
+        final DataSet<I> dataSetOutput = dataSetInput
+                .groupBy(keySelector)
+                .reduce(reduceFunction)
+                .setParallelism(flinkExecutor.fee.getParallelism());
 
         output.accept(dataSetOutput, flinkExecutor);
 
@@ -107,32 +106,26 @@ public class FlinkReduceByOperator<InputType, KeyType>
     }
 
     @Override
-    protected ExecutionOperator createCopy() {
-        return new FlinkReduceByOperator<>(this.getType(), this.getKeyDescriptor(), this.getReduceDescriptor());
-    }
-
-
-    @Override
     public String getLoadProfileEstimatorConfigurationKey() {
         return "wayang.flink.reduceby.load";
     }
 
     @Override
-    public Optional<LoadProfileEstimator> createLoadProfileEstimator(Configuration configuration) {
-        final Optional<LoadProfileEstimator> optEstimator =
-                FlinkExecutionOperator.super.createLoadProfileEstimator(configuration);
+    public Optional<LoadProfileEstimator> createLoadProfileEstimator(final Configuration configuration) {
+        final Optional<LoadProfileEstimator> optEstimator = FlinkExecutionOperator.super.createLoadProfileEstimator(
+                configuration);
         LoadProfileEstimators.nestUdfEstimator(optEstimator, this.keyDescriptor, configuration);
         LoadProfileEstimators.nestUdfEstimator(optEstimator, this.reduceDescriptor, configuration);
         return optEstimator;
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedInputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedInputChannels(final int index) {
         return Arrays.asList(DataSetChannel.DESCRIPTOR, DataSetChannel.DESCRIPTOR_MANY);
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedOutputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedOutputChannels(final int index) {
         assert index <= this.getNumOutputs() || (index == 0 && this.getNumOutputs() == 0);
         return Collections.singletonList(DataSetChannel.DESCRIPTOR);
     }
@@ -140,5 +133,10 @@ public class FlinkReduceByOperator<InputType, KeyType>
     @Override
     public boolean containsAction() {
         return false;
+    }
+
+    @Override
+    protected ExecutionOperator createCopy() {
+        return new FlinkReduceByOperator<>(this.getType(), this.getKeyDescriptor(), this.getReduceDescriptor());
     }
 }

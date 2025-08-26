@@ -18,6 +18,7 @@
 
 package org.apache.wayang.java.mapping;
 
+import org.apache.wayang.basic.data.Tuple2;
 import org.apache.wayang.basic.operators.JoinOperator;
 import org.apache.wayang.core.mapping.Mapping;
 import org.apache.wayang.core.mapping.OperatorPattern;
@@ -28,6 +29,7 @@ import org.apache.wayang.core.types.DataSetType;
 import org.apache.wayang.java.operators.JavaJoinOperator;
 import org.apache.wayang.java.platform.JavaPlatform;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
 
@@ -46,14 +48,14 @@ public class JoinMapping implements Mapping {
     }
 
     private SubplanPattern createSubplanPattern() {
-        final OperatorPattern operatorPattern = new OperatorPattern<>(
-                "join", new JoinOperator<>(null, null, DataSetType.none(), DataSetType.none()), false
+        final OperatorPattern<?> operatorPattern = new OperatorPattern<>(
+                "join", new JoinOperator<>(DataSetType.createDefault(Serializable.class), DataSetType.createDefault(Serializable.class), null, null), false
         );
         return SubplanPattern.createSingleton(operatorPattern);
     }
 
     private ReplacementSubplanFactory createReplacementSubplanFactory() {
-        return new ReplacementSubplanFactory.OfSingleOperators<JoinOperator<Object, Object, Object>>(
+        return new ReplacementSubplanFactory.OfSingleOperators<JoinOperator<Serializable, Serializable, Tuple2<Serializable, Serializable>>>(
                 (matchedOperator, epoch) -> new JavaJoinOperator<>(matchedOperator).at(epoch)
         );
     }

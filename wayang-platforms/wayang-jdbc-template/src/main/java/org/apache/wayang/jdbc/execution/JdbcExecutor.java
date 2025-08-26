@@ -79,8 +79,8 @@ public class JdbcExecutor extends ExecutorTemplate {
     @Override
     public void execute(final ExecutionStage stage, final OptimizationContext optimizationContext, final ExecutionState executionState) {
         final Tuple2<String, SqlQueryChannel.Instance> pair = this.createSqlQuery(stage, optimizationContext);
-        final String query = pair.field0;
-        final SqlQueryChannel.Instance queryChannel = pair.field1;
+        final String query = pair.getField0();
+        final SqlQueryChannel.Instance queryChannel = pair.getField1();
 
         queryChannel.setSqlQuery(query);
 

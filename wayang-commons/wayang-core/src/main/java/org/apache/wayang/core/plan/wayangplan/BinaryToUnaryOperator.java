@@ -28,7 +28,7 @@ public abstract class BinaryToUnaryOperator<InputType0, InputType1, OutputType> 
     /**
      * Creates a new instance.
      */
-    public BinaryToUnaryOperator(DataSetType<InputType0> inputType0,
+    protected BinaryToUnaryOperator(DataSetType<InputType0> inputType0,
                                  DataSetType<InputType1> inputType1,
                                  DataSetType<OutputType> outputType,
                                  boolean isSupportingBroadcastInputs) {

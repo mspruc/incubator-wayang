@@ -18,6 +18,8 @@
 
 package org.apache.wayang.flink.mapping;
 
+import java.util.Collection;
+import java.util.Collections;
 
 import org.apache.wayang.basic.operators.CartesianOperator;
 import org.apache.wayang.core.mapping.Mapping;
@@ -29,33 +31,28 @@ import org.apache.wayang.core.types.DataSetType;
 import org.apache.wayang.flink.operators.FlinkCartesianOperator;
 import org.apache.wayang.flink.platform.FlinkPlatform;
 
-import java.util.Collection;
-import java.util.Collections;
+import scala.Serializable;
 
 /**
  * Mapping from {@link CartesianOperator} to {@link FlinkCartesianOperator}.
  */
-@SuppressWarnings("unchecked")
 public class CartesianMapping implements Mapping {
     @Override
     public Collection<PlanTransformation> getTransformations() {
         return Collections.singleton(new PlanTransformation(
                 this.createSubplanPattern(),
                 this.createReplacementSubplanFactory(),
-                FlinkPlatform.getInstance()
-        ));
+                FlinkPlatform.getInstance()));
     }
 
     private SubplanPattern createSubplanPattern() {
-        final OperatorPattern operatorPattern = new OperatorPattern(
-                "cartesian", new CartesianOperator<>(DataSetType.none(), DataSetType.none()), false
-        );
+        final OperatorPattern<?> operatorPattern = new OperatorPattern<>(
+                "cartesian", new CartesianOperator<>(DataSetType.createDefault(Serializable.class), DataSetType.createDefault(Serializable.class)), false);
         return SubplanPattern.createSingleton(operatorPattern);
     }
 
     private ReplacementSubplanFactory createReplacementSubplanFactory() {
-        return new ReplacementSubplanFactory.OfSingleOperators<CartesianOperator>(
-                (matchedOperator, epoch) -> new FlinkCartesianOperator<>(matchedOperator).at(epoch)
-        );
+        return new ReplacementSubplanFactory.OfSingleOperators<CartesianOperator<?,?>>(
+                (matchedOperator, epoch) -> new FlinkCartesianOperator<>(matchedOperator).at(epoch));
     }
 }

@@ -24,6 +24,7 @@ import org.apache.wayang.core.types.DataSetType;
 import org.apache.wayang.spark.operators.ml.SparkPredictOperator;
 import org.apache.wayang.spark.platform.SparkPlatform;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
 
@@ -42,14 +43,14 @@ public class PredictMapping implements Mapping {
     }
 
     private SubplanPattern createSubplanPattern() {
-        final OperatorPattern operatorPattern = new OperatorPattern(
-                "predict", new PredictOperator(DataSetType.none(), DataSetType.none()), false
+        final OperatorPattern<?> operatorPattern = new OperatorPattern<>(
+                "predict", new PredictOperator<>(DataSetType.none(), DataSetType.none()), false
         );
         return SubplanPattern.createSingleton(operatorPattern);
     }
 
     private ReplacementSubplanFactory createReplacementSubplanFactory() {
-        return new ReplacementSubplanFactory.OfSingleOperators<PredictOperator<Object, Object>>(
+        return new ReplacementSubplanFactory.OfSingleOperators<PredictOperator<Serializable, Serializable>>(
                 (matchedOperator, epoch) -> new SparkPredictOperator<>(matchedOperator).at(epoch)
         );
     }

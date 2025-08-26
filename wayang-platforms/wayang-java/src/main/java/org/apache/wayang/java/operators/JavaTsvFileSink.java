@@ -18,6 +18,17 @@
 
 package org.apache.wayang.java.operators;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Serializable;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+
 import org.apache.wayang.basic.channels.FileChannel;
 import org.apache.wayang.basic.data.Tuple2;
 import org.apache.wayang.core.api.exception.WayangException;
@@ -38,15 +49,6 @@ import org.apache.wayang.java.channels.StreamChannel;
 import org.apache.wayang.java.execution.JavaExecutor;
 import org.apache.wayang.java.platform.JavaPlatform;
 
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.UncheckedIOException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-
 /**
  * {@link Operator} for the {@link JavaPlatform} that creates a TSV file.
  * Only applicable to tuples with standard datatypes.
@@ -57,57 +59,53 @@ public class JavaTsvFileSink<T extends Tuple2<?, ?>> extends UnarySink<T> implem
 
     private final String targetPath;
 
-    public JavaTsvFileSink(DataSetType<T> type) {
+    public JavaTsvFileSink(final DataSetType<T> type) {
         this(null, type);
     }
 
-    public JavaTsvFileSink(String targetPath, DataSetType<T> type) {
+    public JavaTsvFileSink(final String targetPath, final DataSetType<T> type) {
         super(type);
-        assert type.equals(DataSetType.createDefault(Tuple2.class)) :
-                String.format("Illegal type for %s: %s", this, type);
+        assert type.equals(DataSetType.createDefault(Tuple2.class))
+                : String.format("Illegal type for %s: %s", this, type);
         this.targetPath = targetPath;
     }
 
     @Override
     public Tuple<Collection<ExecutionLineageNode>, Collection<ChannelInstance>> evaluate(
-            ChannelInstance[] inputs,
-            ChannelInstance[] outputs,
-            JavaExecutor javaExecutor,
-            OptimizationContext.OperatorContext operatorContext) {
+            final ChannelInstance[] inputs,
+            final ChannelInstance[] outputs,
+            final JavaExecutor javaExecutor,
+            final OptimizationContext.OperatorContext operatorContext) {
         assert inputs.length == this.getNumInputs();
 
         // Prepare Hadoop's SequenceFile.Writer.
-        FileChannel.Instance output = (FileChannel.Instance) outputs[0];
+        final FileChannel.Instance output = (FileChannel.Instance) outputs[0];
         final String path = output.addGivenOrTempPath(this.targetPath, javaExecutor.getCompiler().getConfiguration());
         final FileSystem fileSystem = FileSystems.getFileSystem(path).orElseThrow(
-                () -> new IllegalStateException(String.format("No file system found for \"%s\".", this.targetPath))
-        );
+                () -> new IllegalStateException(String.format("No file system found for \"%s\".", this.targetPath)));
 
         try (final BufferedWriter writer = new BufferedWriter(
                 new OutputStreamWriter(
-                        fileSystem.create(path), "UTF-8"
-                )
-        )) {
+                        fileSystem.create(path), StandardCharsets.UTF_8))) {
             try {
                 ((JavaChannelInstance) inputs[0]).provideStream().forEach(
                         dataQuantum -> {
                             try {
                                 // TODO: Once there are more tuple types, make this generic.
                                 @SuppressWarnings("unchecked")
-                                Tuple2<Object, Object> tuple2 = (Tuple2<Object, Object>) dataQuantum;
-                                writer.append(String.valueOf(tuple2.field0))
+                                final Tuple2<Serializable, Serializable> tuple2 = (Tuple2<Serializable, Serializable>) dataQuantum;
+                                writer.append(String.valueOf(tuple2.getField0()))
                                         .append('\t')
-                                        .append(String.valueOf(tuple2.field1))
+                                        .append(String.valueOf(tuple2.getField1()))
                                         .append('\n');
-                            } catch (IOException e) {
+                            } catch (final IOException e) {
                                 throw new UncheckedIOException(e);
                             }
-                        }
-                );
-            } catch (UncheckedIOException e) {
+                        });
+            } catch (final UncheckedIOException e) {
                 throw e.getCause();
             }
-        } catch (IOException e) {
+        } catch (final IOException e) {
             throw new WayangException(String.format("%s failed on writing to %s.", this, this.targetPath), e);
         }
 
@@ -120,20 +118,19 @@ public class JavaTsvFileSink<T extends Tuple2<?, ?>> extends UnarySink<T> implem
     }
 
     @Override
-    protected ExecutionOperator createCopy() {
-        return new JavaTsvFileSink<>(this.targetPath, this.getType());
-    }
-
-    @Override
-    public List<ChannelDescriptor> getSupportedInputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedInputChannels(final int index) {
         assert index <= this.getNumInputs() || (index == 0 && this.getNumInputs() == 0);
         return Arrays.asList(CollectionChannel.DESCRIPTOR, StreamChannel.DESCRIPTOR);
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedOutputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedOutputChannels(final int index) {
         assert index <= this.getNumInputs() || (index == 0 && this.getNumInputs() == 0);
         return Collections.singletonList(FileChannel.HDFS_TSV_DESCRIPTOR);
     }
 
+    @Override
+    protected ExecutionOperator createCopy() {
+        return new JavaTsvFileSink<>(this.targetPath, this.getType());
+    }
 }

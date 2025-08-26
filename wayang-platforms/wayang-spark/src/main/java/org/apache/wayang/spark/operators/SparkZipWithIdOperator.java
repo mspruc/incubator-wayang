@@ -18,8 +18,15 @@
 
 package org.apache.wayang.spark.operators;
 
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
+
 import org.apache.wayang.basic.data.Tuple2;
 import org.apache.wayang.basic.operators.MapOperator;
 import org.apache.wayang.basic.operators.ZipWithIdOperator;
@@ -34,30 +41,24 @@ import org.apache.wayang.spark.channels.BroadcastChannel;
 import org.apache.wayang.spark.channels.RddChannel;
 import org.apache.wayang.spark.execution.SparkExecutor;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-
-
 /**
  * Spark implementation of the {@link MapOperator}.
  */
-public class SparkZipWithIdOperator<InputType>
-        extends ZipWithIdOperator<InputType>
+public class SparkZipWithIdOperator<I extends Serializable>
+        extends ZipWithIdOperator<I>
         implements SparkExecutionOperator {
 
     /**
      * Creates a new instance.
      */
-    public SparkZipWithIdOperator(DataSetType<InputType> inputType) {
+    public SparkZipWithIdOperator(final DataSetType<I> inputType) {
         super(inputType);
     }
 
     /**
      * Creates a new instance.
      */
-    public SparkZipWithIdOperator(Class<InputType> inputTypeClass) {
+    public SparkZipWithIdOperator(final Class<I> inputTypeClass) {
         super(inputTypeClass);
     }
 
@@ -66,26 +67,26 @@ public class SparkZipWithIdOperator<InputType>
      *
      * @param that that should be copied
      */
-    public SparkZipWithIdOperator(ZipWithIdOperator<InputType> that) {
+    public SparkZipWithIdOperator(final ZipWithIdOperator<I> that) {
         super(that);
     }
 
     @Override
     public Tuple<Collection<ExecutionLineageNode>, Collection<ChannelInstance>> evaluate(
-            ChannelInstance[] inputs,
-            ChannelInstance[] outputs,
-            SparkExecutor sparkExecutor,
-            OptimizationContext.OperatorContext operatorContext) {
+            final ChannelInstance[] inputs,
+            final ChannelInstance[] outputs,
+            final SparkExecutor sparkExecutor,
+            final OptimizationContext.OperatorContext operatorContext) {
         assert inputs.length == this.getNumInputs();
         assert outputs.length == this.getNumOutputs();
 
-        RddChannel.Instance input = (RddChannel.Instance) inputs[0];
-        RddChannel.Instance output = (RddChannel.Instance) outputs[0];
+        final RddChannel.Instance input = (RddChannel.Instance) inputs[0];
+        final RddChannel.Instance output = (RddChannel.Instance) outputs[0];
 
-        final JavaRDD<InputType> inputRdd = input.provideRdd();
-        final JavaPairRDD<InputType, Long> zippedRdd = inputRdd.zipWithUniqueId();
+        final JavaRDD<I> inputRdd = input.provideRdd();
+        final JavaPairRDD<I, Long> zippedRdd = inputRdd.zipWithUniqueId();
         this.name(zippedRdd);
-        final JavaRDD<Tuple2<Long, InputType>> outputRdd = zippedRdd.map(pair -> new Tuple2<>(pair._2, pair._1));
+        final JavaRDD<Tuple2<Long, I>> outputRdd = zippedRdd.map(pair -> new Tuple2<>(pair._2, pair._1));
         this.name(outputRdd);
 
         output.accept(outputRdd, sparkExecutor);
@@ -94,26 +95,18 @@ public class SparkZipWithIdOperator<InputType>
     }
 
     @Override
-    protected ExecutionOperator createCopy() {
-        return new SparkZipWithIdOperator<>(this.getInputType());
-    }
-
-    @Override
     public String getLoadProfileEstimatorConfigurationKey() {
         return "wayang.spark.zipwithid.load";
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedInputChannels(int index) {
-        if (index == 0) {
-            return Arrays.asList(RddChannel.UNCACHED_DESCRIPTOR, RddChannel.CACHED_DESCRIPTOR);
-        } else {
-            return Collections.singletonList(BroadcastChannel.DESCRIPTOR);
-        }
+    public List<ChannelDescriptor> getSupportedInputChannels(final int index) {
+        return index == 0 ? Arrays.asList(RddChannel.UNCACHED_DESCRIPTOR, RddChannel.CACHED_DESCRIPTOR)
+                : Collections.singletonList(BroadcastChannel.DESCRIPTOR);
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedOutputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedOutputChannels(final int index) {
         return Collections.singletonList(RddChannel.UNCACHED_DESCRIPTOR);
     }
 
@@ -122,5 +115,8 @@ public class SparkZipWithIdOperator<InputType>
         return false;
     }
 
-
+    @Override
+    protected ExecutionOperator createCopy() {
+        return new SparkZipWithIdOperator<>(this.getInputType());
+    }
 }

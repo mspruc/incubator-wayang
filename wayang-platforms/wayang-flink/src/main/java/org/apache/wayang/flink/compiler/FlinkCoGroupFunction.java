@@ -18,6 +18,9 @@
 
 package org.apache.wayang.flink.compiler;
 
+import java.io.Serializable;
+import java.util.ArrayList;
+
 import org.apache.flink.api.common.functions.CoGroupFunction;
 import org.apache.flink.util.Collector;
 import org.apache.wayang.basic.data.Tuple2;
@@ -25,11 +28,17 @@ import org.apache.wayang.basic.data.Tuple2;
 /**
  * Wrapper of {@Link CoGroupFunction} of Flink for use in Wayang
  */
-public class FlinkCoGroupFunction<InputType0, InputType1, OutputType> implements CoGroupFunction<InputType0, InputType1, OutputType> {
-
+public class FlinkCoGroupFunction<I0 extends Serializable, I1 extends Serializable>
+        implements CoGroupFunction<I0, I1, Tuple2<ArrayList<I0>, ArrayList<I1>>> {
 
     @Override
-    public void coGroup(Iterable<InputType0> iterable, Iterable<InputType1> iterable1, Collector<OutputType> collector) throws Exception {
-        collector.collect((OutputType) new Tuple2<Iterable<InputType0>, Iterable<InputType1>>(iterable, iterable1));
+    public void coGroup(Iterable<I0> first, Iterable<I1> second,
+            Collector<Tuple2<ArrayList<I0>, ArrayList<I1>>> collector)
+            throws Exception {
+        final ArrayList<I0> list0 = new ArrayList<>();
+        final ArrayList<I1> list1 = new ArrayList<>();
+        first.forEach(list0::add);
+        second.forEach(list1::add);
+        collector.collect(new Tuple2<>(list0, list1));
     }
 }

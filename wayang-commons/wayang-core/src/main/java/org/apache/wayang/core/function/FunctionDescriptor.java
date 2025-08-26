@@ -32,15 +32,16 @@ import java.util.function.*;
  */
 public abstract class FunctionDescriptor implements Serializable {
 
-    public FunctionDescriptor() {}
+    protected FunctionDescriptor() {
+    }
 
     private LoadProfileEstimator loadProfileEstimator;
 
-    public FunctionDescriptor(LoadProfileEstimator loadProfileEstimator) {
+    protected FunctionDescriptor(final LoadProfileEstimator loadProfileEstimator) {
         this.setLoadProfileEstimator(loadProfileEstimator);
     }
 
-    public void setLoadProfileEstimator(LoadProfileEstimator loadProfileEstimator) {
+    public void setLoadProfileEstimator(final LoadProfileEstimator loadProfileEstimator) {
         this.loadProfileEstimator = loadProfileEstimator;
     }
 
@@ -51,19 +52,22 @@ public abstract class FunctionDescriptor implements Serializable {
     /**
      * Utility method to retrieve the selectivity of a {@link FunctionDescriptor}
      *
-     * @param functionDescriptor either a {@link PredicateDescriptor}, a {@link FlatMapDescriptor}, or a {@link MapPartitionsDescriptor}
+     * @param functionDescriptor either a {@link PredicateDescriptor}, a
+     *                           {@link FlatMapDescriptor}, or a
+     *                           {@link MapPartitionsDescriptor}
      * @return the selectivity
      */
-    public static Optional<ProbabilisticDoubleInterval> getSelectivity(FunctionDescriptor functionDescriptor) {
-        if (functionDescriptor == null) throw new NullPointerException();
-        if (functionDescriptor instanceof PredicateDescriptor) {
-            return ((PredicateDescriptor<?>) functionDescriptor).getSelectivity();
+    public static Optional<ProbabilisticDoubleInterval> getSelectivity(final FunctionDescriptor functionDescriptor) {
+        if (functionDescriptor == null)
+            throw new NullPointerException();
+        if (functionDescriptor instanceof final PredicateDescriptor<?> predicateDescriptor) {
+            return predicateDescriptor.getSelectivity();
         }
-        if (functionDescriptor instanceof FlatMapDescriptor) {
-            return ((FlatMapDescriptor<?, ?>) functionDescriptor).getSelectivity();
+        if (functionDescriptor instanceof final FlatMapDescriptor<?,?> flatMapDescriptor) {
+            return flatMapDescriptor.getSelectivity();
         }
-        if (functionDescriptor instanceof MapPartitionsDescriptor) {
-            return ((MapPartitionsDescriptor<?, ?>) functionDescriptor).getSelectivity();
+        if (functionDescriptor instanceof final MapPartitionsDescriptor<?,?> mapPartitionsDescriptor) {
+            return mapPartitionsDescriptor.getSelectivity();
         }
         throw new IllegalArgumentException(String.format("Cannot retrieve selectivity of %s.", functionDescriptor));
     }
@@ -73,38 +77,43 @@ public abstract class FunctionDescriptor implements Serializable {
      *
      * @param cpuEstimator the {@link LoadEstimator} for the CPU load
      * @param ramEstimator the {@link LoadEstimator} for the RAM load
-     * @deprecated Use {@link #setLoadProfileEstimator(LoadProfileEstimator)} instead.
+     * @deprecated Use {@link #setLoadProfileEstimator(LoadProfileEstimator)}
+     *             instead.
      */
-    public void setLoadEstimators(LoadEstimator cpuEstimator, LoadEstimator ramEstimator) {
+    @Deprecated
+    public void setLoadEstimators(final LoadEstimator cpuEstimator, final LoadEstimator ramEstimator) {
         this.setLoadProfileEstimator(new NestableLoadProfileEstimator(
                 cpuEstimator,
-                ramEstimator
-        ));
+                ramEstimator));
     }
 
     /**
-     * Decorates the default {@link Function} with {@link Serializable}, which is required by some distributed frameworks.
+     * Decorates the default {@link Function} with {@link Serializable}, which is
+     * required by some distributed frameworks.
      */
     @FunctionalInterface
     public interface SerializableFunction<Input, Output> extends Function<Input, Output>, Serializable {
     }
 
     /**
-     * Decorates the default {@link Function} with {@link Serializable}, which is required by some distributed frameworks.
+     * Decorates the default {@link Function} with {@link Serializable}, which is
+     * required by some distributed frameworks.
      */
     @FunctionalInterface
-    public interface SerializableBiFunction<Input0, Input1, Output> extends BiFunction<Input0, Input1, Output>, Serializable {
+    public interface SerializableBiFunction<Input0, Input1, Output>
+            extends BiFunction<Input0, Input1, Output>, Serializable {
     }
-
 
     /**
      * Extends a {@link SerializableFunction} to an {@link ExtendedFunction}.
      */
-    public interface ExtendedSerializableFunction<Input, Output> extends SerializableFunction<Input, Output>, ExtendedFunction {
+    public interface ExtendedSerializableFunction<Input, Output>
+            extends SerializableFunction<Input, Output>, ExtendedFunction {
     }
 
     /**
-     * Decorates the default {@link Function} with {@link Serializable}, which is required by some distributed frameworks.
+     * Decorates the default {@link Function} with {@link Serializable}, which is
+     * required by some distributed frameworks.
      */
     @FunctionalInterface
     public interface SerializableBinaryOperator<Type> extends BinaryOperator<Type>, Serializable {
@@ -113,7 +122,8 @@ public abstract class FunctionDescriptor implements Serializable {
     /**
      * Extends a {@link SerializableBinaryOperator} to an {@link ExtendedFunction}.
      */
-    public interface ExtendedSerializableBinaryOperator<Type> extends SerializableBinaryOperator<Type>, ExtendedFunction {
+    public interface ExtendedSerializableBinaryOperator<Type>
+            extends SerializableBinaryOperator<Type>, ExtendedFunction {
     }
 
     @FunctionalInterface
@@ -126,16 +136,18 @@ public abstract class FunctionDescriptor implements Serializable {
     }
 
     /**
-     * Decorates the default {@link Consumer} with {@link Serializable}, which is required by some distributed frameworks.
+     * Decorates the default {@link Consumer} with {@link Serializable}, which is
+     * required by some distributed frameworks.
      */
     @FunctionalInterface
     public interface SerializableConsumer<T> extends Consumer<T>, Serializable {
 
     }
+
     /**
      * Extends a {@link SerializableConsumer} to an {@link ExtendedFunction}.
      */
-    public interface ExtendedSerializableConsumer<T> extends SerializableConsumer<T>, ExtendedFunction{
+    public interface ExtendedSerializableConsumer<T> extends SerializableConsumer<T>, ExtendedFunction {
 
     }
 

@@ -18,14 +18,24 @@
 
 package org.apache.wayang.spark.operators;
 
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
+
 import org.apache.wayang.basic.data.Tuple2;
 import org.apache.wayang.basic.operators.JoinOperator;
 import org.apache.wayang.core.api.Configuration;
+import org.apache.wayang.core.function.FunctionDescriptor.SerializableFunction;
 import org.apache.wayang.core.function.TransformationDescriptor;
+import org.apache.wayang.core.impl.IJavaImpl;
 import org.apache.wayang.core.optimizer.OptimizationContext;
 import org.apache.wayang.core.optimizer.costs.LoadProfileEstimator;
 import org.apache.wayang.core.optimizer.costs.LoadProfileEstimators;
@@ -39,28 +49,51 @@ import org.apache.wayang.spark.channels.RddChannel;
 import org.apache.wayang.spark.compiler.FunctionCompiler;
 import org.apache.wayang.spark.execution.SparkExecutor;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-
 /**
  * Spark implementation of the {@link JoinOperator}.
  */
-public class SparkJoinOperator<InputType0, InputType1, KeyType>
-        extends JoinOperator<InputType0, InputType1, KeyType>
+public class SparkJoinOperator<I0 extends Serializable, I1 extends Serializable, K extends Serializable>
+        extends JoinOperator<I0, I1, K>
         implements SparkExecutionOperator {
+
+    /**
+     * Migrates {@link scala.Tuple2} to {@link Tuple2}.
+     * <p>
+     * <i>TODO: See, if we can somehow dodge all this conversion, which is likely to
+     * happen a lot.</i>
+     * </p>
+     */
+    private static class TupleConverter<I0 extends Serializable, I1 extends Serializable, K extends Serializable>
+            implements
+            Function<scala.Tuple2<K, scala.Tuple2<I0, I1>>, Tuple2<I0, I1>> {
+
+        @Override
+        public Tuple2<I0, I1> call(
+                final scala.Tuple2<K, scala.Tuple2<I0, I1>> scalaTuple) throws Exception {
+            return new Tuple2<>(scalaTuple._2._1, scalaTuple._2._2);
+        }
+    }
 
     /**
      * Creates a new instance.
      */
-    public SparkJoinOperator(DataSetType<InputType0> inputType0,
-                             DataSetType<InputType1> inputType1,
-                             TransformationDescriptor<InputType0, KeyType> keyDescriptor0,
-                             TransformationDescriptor<InputType1, KeyType> keyDescriptor1) {
+    public SparkJoinOperator(final DataSetType<I0> inputType0,
+            final DataSetType<I1> inputType1,
+            final TransformationDescriptor<I0, K> keyDescriptor0,
+            final TransformationDescriptor<I1, K> keyDescriptor1) {
 
         super(keyDescriptor0, keyDescriptor1, inputType0, inputType1);
+    }
+
+    /**
+     * Creates a new instance.
+     */
+    public SparkJoinOperator(final DataSetType<I0> inputType0,
+            final DataSetType<I1> inputType1,
+            final IJavaImpl<SerializableFunction<I0, K>> keyDescriptor0,
+            final IJavaImpl<SerializableFunction<I1, K>> keyDescriptor1) {
+
+        super(inputType0, inputType1, keyDescriptor0, keyDescriptor1);
     }
 
     /**
@@ -68,16 +101,16 @@ public class SparkJoinOperator<InputType0, InputType1, KeyType>
      *
      * @param that that should be copied
      */
-    public SparkJoinOperator(JoinOperator<InputType0, InputType1, KeyType> that) {
+    public SparkJoinOperator(final JoinOperator<I0, I1, K> that) {
         super(that);
     }
 
     @Override
     public Tuple<Collection<ExecutionLineageNode>, Collection<ChannelInstance>> evaluate(
-            ChannelInstance[] inputs,
-            ChannelInstance[] outputs,
-            SparkExecutor sparkExecutor,
-            OptimizationContext.OperatorContext operatorContext) {
+            final ChannelInstance[] inputs,
+            final ChannelInstance[] outputs,
+            final SparkExecutor sparkExecutor,
+            final OptimizationContext.OperatorContext operatorContext) {
         assert inputs.length == this.getNumInputs();
         assert outputs.length == this.getNumOutputs();
 
@@ -85,21 +118,23 @@ public class SparkJoinOperator<InputType0, InputType1, KeyType>
         final RddChannel.Instance input1 = (RddChannel.Instance) inputs[1];
         final RddChannel.Instance output = (RddChannel.Instance) outputs[0];
 
-        final JavaRDD<InputType0> inputRdd0 = input0.provideRdd();
-        final JavaRDD<InputType1> inputRdd1 = input1.provideRdd();
+        final JavaRDD<I0> inputRdd0 = input0.provideRdd();
+        final JavaRDD<I1> inputRdd1 = input1.provideRdd();
 
-        FunctionCompiler compiler = sparkExecutor.getCompiler();
-        final PairFunction<InputType0, KeyType, InputType0> keyExtractor0 = compiler.compileToKeyExtractor(this.keyDescriptor0);
-        final PairFunction<InputType1, KeyType, InputType1> keyExtractor1 = compiler.compileToKeyExtractor(this.keyDescriptor1);
-        JavaPairRDD<KeyType, InputType0> pairStream0 = inputRdd0.mapToPair(keyExtractor0);
-        JavaPairRDD<KeyType, InputType1> pairStream1 = inputRdd1.mapToPair(keyExtractor1);
+        final FunctionCompiler compiler = sparkExecutor.getCompiler();
+        final PairFunction<I0, K, I0> keyExtractor0 = compiler
+                .compileToKeyExtractor(this.keyDescriptor0);
+        final PairFunction<I1, K, I1> keyExtractor1 = compiler
+                .compileToKeyExtractor(this.keyDescriptor1);
+        final JavaPairRDD<K, I0> pairStream0 = inputRdd0.mapToPair(keyExtractor0);
+        final JavaPairRDD<K, I1> pairStream1 = inputRdd1.mapToPair(keyExtractor1);
 
-        final JavaPairRDD<KeyType, scala.Tuple2<InputType0, InputType1>> outputPair =
-                pairStream0.<InputType1>join(pairStream1, sparkExecutor.getNumDefaultPartitions());
+        final JavaPairRDD<K, scala.Tuple2<I0, I1>> outputPair = pairStream0
+                .<I1>join(pairStream1, sparkExecutor.getNumDefaultPartitions());
         this.name(outputPair);
 
         // convert from scala tuple to wayang tuple
-        final JavaRDD<Tuple2<InputType0, InputType1>> outputRdd = outputPair
+        final JavaRDD<Tuple2<I0, I1>> outputRdd = outputPair
                 .map(new TupleConverter<>());
         this.name(outputRdd);
 
@@ -109,46 +144,27 @@ public class SparkJoinOperator<InputType0, InputType1, KeyType>
     }
 
     @Override
-    protected ExecutionOperator createCopy() {
-        return new SparkJoinOperator<>(this.getInputType0(), this.getInputType1(),
-                this.getKeyDescriptor0(), this.getKeyDescriptor1());
-    }
-
-    /**
-     * Migrates {@link scala.Tuple2} to {@link Tuple2}.
-     * <p><i>TODO: See, if we can somehow dodge all this conversion, which is likely to happen a lot.</i></p>
-     */
-    private static class TupleConverter<InputType0, InputType1, KeyType>
-            implements Function<scala.Tuple2<KeyType, scala.Tuple2<InputType0, InputType1>>, Tuple2<InputType0, InputType1>> {
-
-        @Override
-        public Tuple2<InputType0, InputType1> call(scala.Tuple2<KeyType, scala.Tuple2<InputType0, InputType1>> scalaTuple) throws Exception {
-            return new Tuple2<>(scalaTuple._2._1, scalaTuple._2._2);
-        }
-    }
-
-    @Override
     public String getLoadProfileEstimatorConfigurationKey() {
         return "wayang.spark.join.load";
     }
 
     @Override
-    public Optional<LoadProfileEstimator> createLoadProfileEstimator(Configuration configuration) {
-        final Optional<LoadProfileEstimator> optEstimator =
-                SparkExecutionOperator.super.createLoadProfileEstimator(configuration);
+    public Optional<LoadProfileEstimator> createLoadProfileEstimator(final Configuration configuration) {
+        final Optional<LoadProfileEstimator> optEstimator = SparkExecutionOperator.super.createLoadProfileEstimator(
+                configuration);
         LoadProfileEstimators.nestUdfEstimator(optEstimator, this.keyDescriptor0, configuration);
         LoadProfileEstimators.nestUdfEstimator(optEstimator, this.keyDescriptor1, configuration);
         return optEstimator;
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedInputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedInputChannels(final int index) {
         assert index <= this.getNumInputs() || (index == 0 && this.getNumInputs() == 0);
         return Arrays.asList(RddChannel.UNCACHED_DESCRIPTOR, RddChannel.CACHED_DESCRIPTOR);
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedOutputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedOutputChannels(final int index) {
         assert index <= this.getNumOutputs() || (index == 0 && this.getNumOutputs() == 0);
         return Collections.singletonList(RddChannel.UNCACHED_DESCRIPTOR);
     }
@@ -158,4 +174,9 @@ public class SparkJoinOperator<InputType0, InputType1, KeyType>
         return false;
     }
 
+    @Override
+    protected ExecutionOperator createCopy() {
+        return new SparkJoinOperator<>(this.getInputType0(), this.getInputType1(),
+                this.getKeyDescriptor0(), this.getKeyDescriptor1());
+    }
 }

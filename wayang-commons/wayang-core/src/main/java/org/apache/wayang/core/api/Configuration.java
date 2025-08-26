@@ -34,6 +34,7 @@ import org.apache.wayang.core.function.FlatMapDescriptor;
 import org.apache.wayang.core.function.FunctionDescriptor;
 import org.apache.wayang.core.function.MapPartitionsDescriptor;
 import org.apache.wayang.core.function.PredicateDescriptor;
+import org.apache.wayang.core.impl.IJavaImpl;
 import org.apache.wayang.core.mapping.Mapping;
 import org.apache.wayang.core.optimizer.ProbabilisticDoubleInterval;
 import org.apache.wayang.core.optimizer.cardinality.CardinalityEstimate;
@@ -116,6 +117,8 @@ public class Configuration implements Serializable {
     private KeyValueProvider<ExecutionOperator, LoadProfileEstimator> operatorLoadProfileEstimatorProvider;
 
     private KeyValueProvider<FunctionDescriptor, LoadProfileEstimator> functionLoadProfileEstimatorProvider;
+
+    private KeyValueProvider<IJavaImpl<?>, LoadProfileEstimator> JavaImplLoadProfileEstimatorProvider;
 
     private MapBasedKeyValueProvider<String, LoadProfileEstimator> loadProfileEstimatorCache;
 
@@ -647,6 +650,15 @@ public class Configuration implements Serializable {
     public void setOperatorLoadProfileEstimatorProvider(KeyValueProvider<ExecutionOperator, LoadProfileEstimator> operatorLoadProfileEstimatorProvider) {
         this.operatorLoadProfileEstimatorProvider = operatorLoadProfileEstimatorProvider;
     }
+
+    public KeyValueProvider<IJavaImpl<?>, LoadProfileEstimator> getJavaImplLoadProfileEstimatorProvider() {
+        return this.JavaImplLoadProfileEstimatorProvider;
+    }
+
+    public void setJavaImplLoadProfileEstimatorProvider(final KeyValueProvider<IJavaImpl<?>, LoadProfileEstimator> javaImplLoadProfileEstimatorProvider) {
+        this.JavaImplLoadProfileEstimatorProvider = javaImplLoadProfileEstimatorProvider;
+    }
+
 
     public KeyValueProvider<FunctionDescriptor, LoadProfileEstimator> getFunctionLoadProfileEstimatorProvider() {
         return this.functionLoadProfileEstimatorProvider;

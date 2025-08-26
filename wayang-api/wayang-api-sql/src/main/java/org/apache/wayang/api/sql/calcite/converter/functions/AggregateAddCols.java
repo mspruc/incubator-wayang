@@ -17,45 +17,48 @@
  */
 package org.apache.wayang.api.sql.calcite.converter.functions;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.wayang.basic.data.Record;
-import org.apache.wayang.basic.data.Tuple2;
 import org.apache.wayang.core.function.FunctionDescriptor;
 
 public class AggregateAddCols implements FunctionDescriptor.SerializableFunction<Record, Record> {
-    final List<Tuple2<SqlKind, List<Integer>>> aggregateCalls;
+    final ArrayList<SqlKind> kinds = new ArrayList<>();
+    final ArrayList<List<Integer>> args = new ArrayList<>();
 
     public AggregateAddCols(final List<AggregateCall> aggregateCalls) {
-        this.aggregateCalls = aggregateCalls.stream().map(call -> new Tuple2<>(call.getAggregation().getKind(), call.getArgList())).collect(Collectors.toList());
+        aggregateCalls.forEach(agg -> {
+            kinds.add(agg.getAggregation().getKind());
+            args.add(agg.getArgList());
+        });
     }
+    
 
     @Override
-    public Record apply(final Record record) {
-        final int l = record.size();
-        final int newRecordSize = l + aggregateCalls.size() + 1;
+    public Record apply(final Record rec) {
+        final int l = rec.size();
+        final int newRecordSize = l + kinds.size() + 1;
         final Object[] resValues = new Object[newRecordSize];
 
         for (int i = 0; i < l; i++) {
-            resValues[i] = record.getField(i);
+            resValues[i] = rec.getField(i);
         }
 
-        int i = l;
-        for (final Tuple2<SqlKind, List<Integer>> aggregateCall : aggregateCalls) {
-            final SqlKind kind = aggregateCall.field0;
-            final List<Integer> argList = aggregateCall.field1;
+
+        for (int i = l; i < resValues.length; i++) {
+            final SqlKind kind = kinds.get(i);
+            final List<Integer> argList = args.get(i);
 
             switch (kind) {
                 case COUNT:
                     resValues[i] = 1;
                     break;
                 default:
-                    resValues[i] = record.getField(argList.get(0));
+                    resValues[i] = rec.getField(argList.get(0));
             }
-            i++;
         }
 
         resValues[newRecordSize - 1] = 1;

@@ -19,6 +19,7 @@
 package org.apache.wayang.basic.operators;
 
 import org.apache.commons.lang3.Validate;
+
 import org.apache.wayang.basic.data.Tuple2;
 import org.apache.wayang.core.api.Configuration;
 import org.apache.wayang.core.optimizer.cardinality.CardinalityEstimator;
@@ -26,24 +27,25 @@ import org.apache.wayang.core.optimizer.cardinality.DefaultCardinalityEstimator;
 import org.apache.wayang.core.plan.wayangplan.UnaryToUnaryOperator;
 import org.apache.wayang.core.types.DataSetType;
 
+import java.io.Serializable;
 import java.util.Optional;
 
 /**
  * This operators attaches a unique ID to each input data quantum.
  */
-public class ZipWithIdOperator<InputType> extends UnaryToUnaryOperator<InputType, Tuple2<Long, InputType>> {
+public class ZipWithIdOperator<I extends Serializable> extends UnaryToUnaryOperator<I, Tuple2<Long, I>> {
 
     /**
      * Creates a new instance.
      */
-    public ZipWithIdOperator(Class<InputType> inputTypeClass) {
+    public ZipWithIdOperator(final Class<I> inputTypeClass) {
         this(DataSetType.createDefault(inputTypeClass));
     }
 
     /**
      * Creates a new instance.
      */
-    public ZipWithIdOperator(DataSetType<InputType> inputType) {
+    public ZipWithIdOperator(final DataSetType<I> inputType) {
         super(inputType, DataSetType.createDefaultUnchecked(Tuple2.class), false);
     }
 
@@ -52,7 +54,7 @@ public class ZipWithIdOperator<InputType> extends UnaryToUnaryOperator<InputType
      *
      * @param that that should be copied
      */
-    public ZipWithIdOperator(ZipWithIdOperator<InputType> that) {
+    public ZipWithIdOperator(final ZipWithIdOperator<I> that) {
         super(that);
     }
 
@@ -60,10 +62,9 @@ public class ZipWithIdOperator<InputType> extends UnaryToUnaryOperator<InputType
     public Optional<CardinalityEstimator> createCardinalityEstimator(
             final int outputIndex,
             final Configuration configuration) {
-        Validate.inclusiveBetween(0, this.getNumOutputs() - 1, outputIndex);
+        Validate.inclusiveBetween(0, this.getNumOutputs() - 1L, outputIndex);
         return Optional.of(new DefaultCardinalityEstimator(
                 1d, 1, this.isSupportingBroadcastInputs(),
-                inputCards -> inputCards[0]
-        ));
+                inputCards -> inputCards[0]));
     }
 }

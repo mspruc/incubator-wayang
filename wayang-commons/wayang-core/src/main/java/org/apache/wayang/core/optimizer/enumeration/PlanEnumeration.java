@@ -569,11 +569,11 @@ public class PlanEnumeration {
 
         // Escape the output slots.
         for (Tuple<OutputSlot<?>, InputSlot<?>> link : this.servingOutputSlots) {
-            if (link.field1 != null) {
+            if (link.getField1() != null) {
                 throw new IllegalStateException("Cannot escape a connected output slot.");
             }
             final Collection<OutputSlot<Object>> resolvedOutputSlots =
-                    alternative.getSlotMapping().resolveDownstream(link.field0.unchecked());
+                    alternative.getSlotMapping().resolveDownstream(link.getField0().unchecked());
             for (OutputSlot escapedOutput : resolvedOutputSlots) {
                 final List<InputSlot<?>> occupiedInputs = escapedOutput.getOccupiedSlots();
                 if (occupiedInputs.isEmpty()) {

@@ -40,9 +40,7 @@ import java.util.Collection;
 * Joining 2 tables , person and orders using GenericJdbc Plugin.
  * Tables reside on 2 different platforms , mysql and postgres namely
  * Test to check the working of generic jdbc plugin for different jdbc platforms*/
-
-
-
+//TODO: convert test to Junit test
 public class SqlTest {
 
 
@@ -73,16 +71,16 @@ public class SqlTest {
         TableSource person = new GenericJdbcTableSource("postgres","person");
         TableSource orders = new GenericJdbcTableSource("mysql","orders");
 
-        FunctionDescriptor.SerializableFunction<Record, Object> keyFunctionPerson = record -> record.getField(0);
-        FunctionDescriptor.SerializableFunction<Record, Object> keyFunctionOrders = record -> record.getField(1);
+        FunctionDescriptor.SerializableFunction<Record, Serializable> keyFunctionPerson = rec -> (Serializable) rec.getField(0);
+        FunctionDescriptor.SerializableFunction<Record, Serializable> keyFunctionOrders = rec -> (Serializable) rec.getField(1);
 
 
-        JoinOperator<Record, Record, Object> joinOperator = new JoinOperator<>(
+        JoinOperator<Record, Record, Serializable> joinOperator = new JoinOperator<>(
                 keyFunctionPerson,
                 keyFunctionOrders,
                 Record.class,
                 Record.class,
-                Object.class
+                Serializable.class
         );
 
         LocalCallbackSink<Tuple2<Record, Record>> sink = LocalCallbackSink.createCollectingSink(collector, ReflectionUtils.specify(Tuple2.class));
@@ -106,8 +104,6 @@ public class SqlTest {
         System.out.println("Done");
 
     }
-
-
 }
 
 

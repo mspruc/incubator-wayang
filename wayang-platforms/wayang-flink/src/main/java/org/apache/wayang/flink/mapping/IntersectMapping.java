@@ -34,7 +34,6 @@ import java.util.Collections;
 /**
  * Mapping from {@link IntersectOperator} to {@link FlinkIntersectOperator}.
  */
-@SuppressWarnings("unchecked")
 public class IntersectMapping implements Mapping{
 
     @Override
@@ -47,7 +46,7 @@ public class IntersectMapping implements Mapping{
     }
 
     private SubplanPattern createSubplanPattern() {
-        final OperatorPattern operatorPattern = new OperatorPattern<>(
+        final OperatorPattern<?> operatorPattern = new OperatorPattern<>(
                 "intersect", new IntersectOperator<>(DataSetType.none()), false
         );
         return SubplanPattern.createSingleton(operatorPattern);

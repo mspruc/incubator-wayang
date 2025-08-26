@@ -18,6 +18,7 @@
 
 package org.apache.wayang.api.sql.calcite.converter;
 
+import java.io.Serializable;
 import java.util.List;
 
 import org.apache.calcite.rex.RexCall;
@@ -68,9 +69,9 @@ public class WayangJoinVisitor extends WayangRelNodeVisitor<WayangJoin> {
         final int leftKeyIndex  = keys.get(0) < keys.get(1) ? keys.get(0)          : keys.get(1);
         final int rightKeyIndex = keys.get(0) < keys.get(1) ? keys.get(1) - offset : keys.get(0) - offset;
         
-        final JoinOperator<Record, Record, Object> join = new JoinOperator<>(
-                new TransformationDescriptor<>(new JoinKeyExtractor(leftKeyIndex), Record.class, Object.class),
-                new TransformationDescriptor<>(new JoinKeyExtractor(rightKeyIndex), Record.class, Object.class));
+        final JoinOperator<Record, Record, Serializable> join = new JoinOperator<>(
+                new TransformationDescriptor<>(new JoinKeyExtractor(leftKeyIndex), Record.class, Serializable.class),
+                new TransformationDescriptor<>(new JoinKeyExtractor(rightKeyIndex), Record.class, Serializable.class));
 
         // call connectTo on both operators (left and right)
         childOpLeft.connectTo(0, join, 0);

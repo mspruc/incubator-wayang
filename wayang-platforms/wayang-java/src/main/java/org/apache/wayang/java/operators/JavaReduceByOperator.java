@@ -58,16 +58,17 @@ public class JavaReduceByOperator<Type, KeyType>
         extends ReduceByOperator<Type, KeyType>
         implements JavaExecutionOperator {
 
-
     /**
      * Creates a new instance.
      *
-     * @param type             type of the reduce elements (i.e., type of {@link #getInput()} and {@link #getOutput()})
+     * @param type             type of the reduce elements (i.e., type of
+     *                         {@link #getInput()} and {@link #getOutput()})
      * @param keyDescriptor    describes how to extract the key from data units
-     * @param reduceDescriptor describes the reduction to be performed on the elements
+     * @param reduceDescriptor describes the reduction to be performed on the
+     *                         elements
      */
-    public JavaReduceByOperator(DataSetType<Type> type, TransformationDescriptor<Type, KeyType> keyDescriptor,
-                                ReduceDescriptor<Type> reduceDescriptor) {
+    public JavaReduceByOperator(final DataSetType<Type> type, final TransformationDescriptor<Type, KeyType> keyDescriptor,
+            final ReduceDescriptor<Type> reduceDescriptor) {
         super(keyDescriptor, reduceDescriptor, type);
     }
 
@@ -76,16 +77,16 @@ public class JavaReduceByOperator<Type, KeyType>
      *
      * @param that that should be copied
      */
-    public JavaReduceByOperator(ReduceByOperator<Type, KeyType> that) {
+    public JavaReduceByOperator(final ReduceByOperator<Type, KeyType> that) {
         super(that);
     }
 
     @Override
     public Tuple<Collection<ExecutionLineageNode>, Collection<ChannelInstance>> evaluate(
-            ChannelInstance[] inputs,
-            ChannelInstance[] outputs,
-            JavaExecutor javaExecutor,
-            OptimizationContext.OperatorContext operatorContext) {
+            final ChannelInstance[] inputs,
+            final ChannelInstance[] outputs,
+            final JavaExecutor javaExecutor,
+            final OptimizationContext.OperatorContext operatorContext) {
         assert inputs.length == this.getNumInputs();
         assert outputs.length == this.getNumOutputs();
 
@@ -94,8 +95,7 @@ public class JavaReduceByOperator<Type, KeyType>
         JavaExecutor.openFunction(this, reduceFunction, inputs, operatorContext);
 
         final Map<KeyType, Type> reductionResult = ((JavaChannelInstance) inputs[0]).<Type>provideStream().collect(
-                Collectors.groupingBy(keyExtractor, new ReducingCollector<>(reduceFunction))
-        );
+                Collectors.groupingBy(keyExtractor, new ReducingCollector<>(reduceFunction)));
         ((CollectionChannel.Instance) outputs[0]).accept(reductionResult.values());
 
         return ExecutionOperator.modelEagerExecution(inputs, outputs, operatorContext);
@@ -107,9 +107,9 @@ public class JavaReduceByOperator<Type, KeyType>
     }
 
     @Override
-    public Optional<LoadProfileEstimator> createLoadProfileEstimator(Configuration configuration) {
-        final Optional<LoadProfileEstimator> optEstimator =
-                JavaExecutionOperator.super.createLoadProfileEstimator(configuration);
+    public Optional<LoadProfileEstimator> createLoadProfileEstimator(final Configuration configuration) {
+        final Optional<LoadProfileEstimator> optEstimator = JavaExecutionOperator.super.createLoadProfileEstimator(
+                configuration);
         LoadProfileEstimators.nestUdfEstimator(optEstimator, this.keyDescriptor, configuration);
         LoadProfileEstimators.nestUdfEstimator(optEstimator, this.reduceDescriptor, configuration);
         return optEstimator;
@@ -121,27 +121,29 @@ public class JavaReduceByOperator<Type, KeyType>
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedInputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedInputChannels(final int index) {
         assert index <= this.getNumInputs() || (index == 0 && this.getNumInputs() == 0);
-        if (this.getInput(index).isBroadcast()) return Collections.singletonList(CollectionChannel.DESCRIPTOR);
+        if (this.getInput(index).isBroadcast())
+            return Collections.singletonList(CollectionChannel.DESCRIPTOR);
         return Arrays.asList(CollectionChannel.DESCRIPTOR, StreamChannel.DESCRIPTOR);
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedOutputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedOutputChannels(final int index) {
         assert index <= this.getNumOutputs() || (index == 0 && this.getNumOutputs() == 0);
         return Collections.singletonList(CollectionChannel.DESCRIPTOR);
     }
 
     /**
-     * Immitates {@link Collectors#reducing(BinaryOperator)} but assumes that there is always at least one element
+     * Immitates {@link Collectors#reducing(BinaryOperator)} but assumes that there
+     * is always at least one element
      * in each reduction.
      */
     private static class ReducingCollector<T> implements Collector<T, List<T>, T> {
 
         private final BinaryOperator<T> reduceFunction;
 
-        ReducingCollector(BinaryOperator<T> reduceFunction) {
+        ReducingCollector(final BinaryOperator<T> reduceFunction) {
             this.reduceFunction = reduceFunction;
         }
 

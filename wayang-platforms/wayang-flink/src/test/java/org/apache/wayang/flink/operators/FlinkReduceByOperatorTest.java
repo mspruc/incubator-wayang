@@ -42,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 class FlinkReduceByOperatorTest extends FlinkOperatorTestBase {
 
-    //TODO: Validate FlinkReduceByOperator implementation
+    // TODO: Validate FlinkReduceByOperator implementation
     // it is required to validate the implementation of FlinkReduceByOperator
     // because trigger an exception in the test and looks like is a problem in the
     // implementation of the implementation in the operator
@@ -52,42 +52,39 @@ class FlinkReduceByOperatorTest extends FlinkOperatorTestBase {
         // Prepare test data.
         List<Tuple2<String, Integer>> inputList = Arrays.stream("aaabbccccdeefff".split(""))
                 .map(string -> new Tuple2<>(string, 1))
-                .collect(Collectors.toList());
+                .toList();
         DataSetChannel.Instance input = this.createDataSetChannelInstance(inputList);
         DataSetChannel.Instance output = this.createDataSetChannelInstance();
 
-
         // Build the reduce operator.
-        FlinkReduceByOperator<Tuple2<String, Integer>, String> reduceByOperator =
-                new FlinkReduceByOperator<>(
-                        DataSetType.createDefaultUnchecked(Tuple2.class),
-                        new ProjectionDescriptor<>(
-                                DataUnitType.createBasicUnchecked(Tuple2.class),
-                                DataUnitType.createBasic(String.class),
-                                "field0"),
-                        new ReduceDescriptor<>(
-                                (a, b) -> {
-                                    a.field1 += b.field1;
-                                    return a;
-                                }, DataUnitType.createGroupedUnchecked(Tuple2.class),
-                                DataUnitType.createBasicUnchecked(Tuple2.class)
-                        ));
+        FlinkReduceByOperator<Tuple2<String, Integer>, String> reduceByOperator = new FlinkReduceByOperator<>(
+                DataSetType.createDefaultUnchecked(Tuple2.class),
+                new ProjectionDescriptor<>(
+                        DataUnitType.createBasicUnchecked(Tuple2.class),
+                        DataUnitType.createBasic(String.class),
+                        "field0"),
+                new ReduceDescriptor<>(
+                        (a, b) -> {
+                            a.setField1(a.getField1() + b.getField1());
+                            return a;
+                        }, DataUnitType.createGroupedUnchecked(Tuple2.class),
+                        DataUnitType.createBasicUnchecked(Tuple2.class)));
 
         // Set up the ChannelInstances.
-        final ChannelInstance[] inputs = new ChannelInstance[]{input};
-        final ChannelInstance[] outputs = new ChannelInstance[]{output};
+        final ChannelInstance[] inputs = new ChannelInstance[] { input };
+        final ChannelInstance[] outputs = new ChannelInstance[] { output };
 
         // Execute.
         try {
             this.evaluate(reduceByOperator, inputs, outputs);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
             fail();
         }
 
         // Verify the outcome.
-        final Iterable<Tuple2<String, Integer>> result = output.<Tuple2<String, Integer>>provideDataSet().collect();
+        final Iterable<Tuple2<String, Integer>> result = output.<Tuple2<String, Integer>>provideDataSet()
+                .collect();
         final Set<Tuple2<String, Integer>> resultSet = new HashSet<>();
         result.forEach(resultSet::add);
         final Tuple2[] expectedResults = {
@@ -99,7 +96,8 @@ class FlinkReduceByOperatorTest extends FlinkOperatorTestBase {
                 new Tuple2<>("f", 3)
         };
         Arrays.stream(expectedResults)
-                .forEach(expected -> assertTrue(resultSet.contains(expected), "Not contained: " + expected));
+                .forEach(expected -> assertTrue(resultSet.contains(expected),
+                        "Not contained: " + expected));
         assertEquals(expectedResults.length, resultSet.size());
 
     }

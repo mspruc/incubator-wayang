@@ -18,7 +18,14 @@
 
 package org.apache.wayang.spark.operators.ml;
 
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+
 import org.apache.spark.api.java.JavaRDD;
+
 import org.apache.wayang.basic.operators.PredictOperator;
 import org.apache.wayang.core.optimizer.OptimizationContext;
 import org.apache.wayang.core.plan.wayangplan.ExecutionOperator;
@@ -33,40 +40,34 @@ import org.apache.wayang.spark.execution.SparkExecutor;
 import org.apache.wayang.spark.model.SparkMLModel;
 import org.apache.wayang.spark.operators.SparkExecutionOperator;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+public class SparkPredictOperator<X extends Serializable, Y extends Serializable> extends PredictOperator<X, Y>
+        implements SparkExecutionOperator {
 
-public class SparkPredictOperator<X, Y> extends PredictOperator<X, Y> implements SparkExecutionOperator {
-
-    public SparkPredictOperator(DataSetType<X> inType, DataSetType<Y> outType) {
+    public SparkPredictOperator(final DataSetType<X> inType, final DataSetType<Y> outType) {
         super(inType, outType);
     }
 
-    public SparkPredictOperator(PredictOperator<X, Y> that) {
+    public SparkPredictOperator(final PredictOperator<X, Y> that) {
         super(that);
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedInputChannels(int index) {
-        if (index == 0) {
-            return Collections.singletonList(CollectionChannel.DESCRIPTOR);
-        }
-        return Arrays.asList(RddChannel.UNCACHED_DESCRIPTOR, RddChannel.CACHED_DESCRIPTOR);
+    public List<ChannelDescriptor> getSupportedInputChannels(final int index) {
+        return index == 0 ? Collections.singletonList(CollectionChannel.DESCRIPTOR)
+                : Arrays.asList(RddChannel.UNCACHED_DESCRIPTOR, RddChannel.CACHED_DESCRIPTOR);
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedOutputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedOutputChannels(final int index) {
         return Collections.singletonList(RddChannel.UNCACHED_DESCRIPTOR);
     }
 
     @Override
     public Tuple<Collection<ExecutionLineageNode>, Collection<ChannelInstance>> evaluate(
-            ChannelInstance[] inputs,
-            ChannelInstance[] outputs,
-            SparkExecutor sparkExecutor,
-            OptimizationContext.OperatorContext operatorContext) {
+            final ChannelInstance[] inputs,
+            final ChannelInstance[] outputs,
+            final SparkExecutor sparkExecutor,
+            final OptimizationContext.OperatorContext operatorContext) {
         assert inputs.length == this.getNumInputs();
         assert outputs.length == this.getNumOutputs();
 

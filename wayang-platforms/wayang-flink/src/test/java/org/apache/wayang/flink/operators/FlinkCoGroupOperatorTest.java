@@ -18,12 +18,11 @@
 
 package org.apache.wayang.flink.operators;
 
-import org.apache.wayang.basic.data.Tuple2;
+import org.apache.wayang.core.util.Tuple;
 import org.apache.wayang.basic.function.ProjectionDescriptor;
 import org.apache.wayang.core.platform.ChannelInstance;
 import org.apache.wayang.core.types.DataSetType;
 import org.apache.wayang.core.types.DataUnitType;
-import org.apache.wayang.core.util.Tuple;
 import org.apache.wayang.core.util.WayangCollections;
 import org.apache.wayang.flink.channels.DataSetChannel;
 import org.junit.jupiter.api.Test;
@@ -41,61 +40,60 @@ class FlinkCoGroupOperatorTest extends FlinkOperatorTestBase {
     @Test
     void testExecution() throws Exception {
         // Prepare test data.
-        DataSetChannel.Instance input0 = this.createDataSetChannelInstance(Arrays.asList(
-                new Tuple2<>(1, "b"), new Tuple2<>(1, "c"), new Tuple2<>(2, "d"), new Tuple2<>(3, "e")));
-        DataSetChannel.Instance input1 = this.createDataSetChannelInstance(Arrays.asList(
-                new Tuple2<>("x", 1), new Tuple2<>("y", 1), new Tuple2<>("z", 2), new Tuple2<>("w", 4)));
-        DataSetChannel.Instance output = this.createDataSetChannelInstance();
+        final DataSetChannel.Instance input0 = this.createDataSetChannelInstance(Arrays.asList(
+                new Tuple<>(1, "b"), new Tuple<>(1, "c"), new Tuple<>(2, "d"),
+                new Tuple<>(3, "e")));
+        final DataSetChannel.Instance input1 = this.createDataSetChannelInstance(Arrays.asList(
+                new Tuple<>("x", 1), new Tuple<>("y", 1), new Tuple<>("z", 2),
+                new Tuple<>("w", 4)));
+        final DataSetChannel.Instance output = this.createDataSetChannelInstance();
 
         // Build the operator.
-        FlinkCoGroupOperator<Tuple2, Tuple2, Integer> coGroup =
-                new FlinkCoGroupOperator<>(
-                        new ProjectionDescriptor<>(
-                                DataUnitType.createBasicUnchecked(Tuple2.class),
-                                DataUnitType.createBasic(Integer.class),
-                                "field0"),
-                        new ProjectionDescriptor<>(
-                                DataUnitType.createBasicUnchecked(Tuple2.class),
-                                DataUnitType.createBasic(Integer.class),
-                                "field1"),
-                        DataSetType.createDefaultUnchecked(Tuple2.class),
-                        DataSetType.createDefaultUnchecked(Tuple2.class)
-                );
+        final FlinkCoGroupOperator<Tuple, Tuple, Integer> coGroup = new FlinkCoGroupOperator<>(
+                new ProjectionDescriptor<>(
+                        DataUnitType.createBasicUnchecked(Tuple.class),
+                        DataUnitType.createBasic(Integer.class),
+                        "field0"),
+                new ProjectionDescriptor<>(
+                        DataUnitType.createBasicUnchecked(Tuple.class),
+                        DataUnitType.createBasic(Integer.class),
+                        "field1"),
+                DataSetType.createDefaultUnchecked(Tuple.class),
+                DataSetType.createDefaultUnchecked(Tuple.class));
 
         // Set up the ChannelInstances.
-        final ChannelInstance[] inputs = new ChannelInstance[]{input0, input1};
-        final ChannelInstance[] outputs = new ChannelInstance[]{output};
+        final ChannelInstance[] inputs = new ChannelInstance[] { input0, input1 };
+        final ChannelInstance[] outputs = new ChannelInstance[] { output };
 
         // Execute.
         this.evaluate(coGroup, inputs, outputs);
 
         // Verify the outcome.
-        final List<Tuple2<Iterable<Tuple2<Integer, String>>, Iterable<Tuple2<String, Integer>>>> result =
-                output.<Tuple2<Iterable<Tuple2<Integer, String>>, Iterable<Tuple2<String, Integer>>>>provideDataSet().collect();
-        Collection<Tuple<Collection<Tuple2<Integer, String>>, Collection<Tuple2<String, Integer>>>> expectedGroups =
-                new ArrayList<>(Arrays.asList(
-                        new Tuple<Collection<Tuple2<Integer, String>>, Collection<Tuple2<String, Integer>>>(
-                                Arrays.asList(new Tuple2<>(1, "b"), new Tuple2<>(1, "c")),
-                                Arrays.asList(new Tuple2<>("x", 1), new Tuple2<>("y", 1))
-                        ),
-                        new Tuple<Collection<Tuple2<Integer, String>>, Collection<Tuple2<String, Integer>>>(
-                                Collections.singletonList(new Tuple2<>(2, "d")),
-                                Collections.singletonList(new Tuple2<>("z", 2))
-                        ), new Tuple<Collection<Tuple2<Integer, String>>, Collection<Tuple2<String, Integer>>>(
-                                Collections.singletonList(new Tuple2<>(3, "e")),
-                                Collections.emptyList()
-                        ),
-                        new Tuple<Collection<Tuple2<Integer, String>>, Collection<Tuple2<String, Integer>>>(
+        final List<Tuple<Iterable<Tuple<Integer, String>>, Iterable<Tuple<String, Integer>>>> result = output
+                .<Tuple<Iterable<Tuple<Integer, String>>, Iterable<Tuple<String, Integer>>>>provideDataSet()
+                .collect();
+        final Collection<Tuple<Collection<Tuple<Integer, String>>, Collection<Tuple<String, Integer>>>> expectedGroups = new ArrayList<>(
+                Arrays.asList(
+                        new Tuple<Collection<Tuple<Integer, String>>, Collection<Tuple<String, Integer>>>(
+                                Arrays.asList(new Tuple<>(1, "b"),
+                                        new Tuple<>(1, "c")),
+                                Arrays.asList(new Tuple<>("x", 1),
+                                        new Tuple<>("y", 1))),
+                        new Tuple<Collection<Tuple<Integer, String>>, Collection<Tuple<String, Integer>>>(
+                                Collections.singletonList(new Tuple<>(2, "d")),
+                                Collections.singletonList(new Tuple<>("z", 2))),
+                        new Tuple<Collection<Tuple<Integer, String>>, Collection<Tuple<String, Integer>>>(
+                                Collections.singletonList(new Tuple<>(3, "e")),
+                                Collections.emptyList()),
+                        new Tuple<Collection<Tuple<Integer, String>>, Collection<Tuple<String, Integer>>>(
                                 Collections.emptyList(),
-                                Collections.singletonList(new Tuple2<>("w", 4))
-                        )
-                ));
+                                Collections.singletonList(new Tuple<>("w", 4)))));
 
-        ResultLoop:
-        for (Tuple2<Iterable<Tuple2<Integer, String>>, Iterable<Tuple2<String, Integer>>> resultCoGroup : result) {
-            for (Iterator<Tuple<Collection<Tuple2<Integer, String>>, Collection<Tuple2<String, Integer>>>> i = expectedGroups.iterator();
-                 i.hasNext(); ) {
-                Tuple<Collection<Tuple2<Integer, String>>, Collection<Tuple2<String, Integer>>> expectedGroup = i.next();
+        ResultLoop: for (final Tuple<Iterable<Tuple<Integer, String>>, Iterable<Tuple<String, Integer>>> resultCoGroup : result) {
+            for (final Iterator<Tuple<Collection<Tuple<Integer, String>>, Collection<Tuple<String, Integer>>>> i = expectedGroups
+                    .iterator(); i.hasNext();) {
+                final Tuple<Collection<Tuple<Integer, String>>, Collection<Tuple<String, Integer>>> expectedGroup = i
+                        .next();
                 if (this.compare(expectedGroup, resultCoGroup)) {
                     i.remove();
                     continue ResultLoop;
@@ -105,18 +103,21 @@ class FlinkCoGroupOperatorTest extends FlinkOperatorTestBase {
         }
         assertTrue(
                 expectedGroups.isEmpty(),
-                String.format("Missing groups: %s", expectedGroups)
-        );
+                String.format("Missing groups: %s", expectedGroups));
     }
 
-    private boolean compare(Tuple<Collection<Tuple2<Integer, String>>, Collection<Tuple2<String, Integer>>> expected,
-                            Tuple2<Iterable<Tuple2<Integer, String>>, Iterable<Tuple2<String, Integer>>> actual) {
-        return this.compareGroup(expected.field0, actual.field0) && this.compareGroup(expected.field1, actual.field1);
+    private boolean compare(
+            final Tuple<Collection<Tuple<Integer, String>>, Collection<Tuple<String, Integer>>> expected,
+            final Tuple<Iterable<Tuple<Integer, String>>, Iterable<Tuple<String, Integer>>> actual) {
+        return this.compareGroup(expected.getField0(), actual.getField0())
+                && this.compareGroup(expected.getField1(), actual.getField1());
     }
 
-    private <T> boolean compareGroup(Collection<T> expected, Iterable<T> actual) {
-        if (expected == null) return actual == null;
-        if (actual == null) return false;
+    private <T> boolean compareGroup(final Collection<T> expected, final Iterable<T> actual) {
+        if (expected == null)
+            return actual == null;
+        if (actual == null)
+            return false;
 
         return WayangCollections.asSet(expected).equals(WayangCollections.asSet(actual));
     }

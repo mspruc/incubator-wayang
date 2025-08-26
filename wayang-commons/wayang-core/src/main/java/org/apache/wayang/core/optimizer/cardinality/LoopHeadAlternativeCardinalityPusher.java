@@ -30,7 +30,6 @@ import org.apache.wayang.core.util.Tuple;
 
 import java.util.Collection;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 /**
  * {@link CardinalityPusher} implementation for {@link LoopHeadAlternative}s.
@@ -41,29 +40,25 @@ public class LoopHeadAlternativeCardinalityPusher extends AbstractAlternativeCar
 
     public LoopHeadAlternativeCardinalityPusher(
             final LoopHeadAlternative loopHeadAlternative,
-            Collection<InputSlot<?>> relevantInputSlots,
-            Collection<OutputSlot<?>> relevantOutputSlots,
-            BiFunction<OperatorAlternative.Alternative, Configuration, CardinalityPusher> pusherRetriever,
-            final Configuration configuration
-    ) {
+            final Collection<InputSlot<?>> relevantInputSlots,
+            final Collection<OutputSlot<?>> relevantOutputSlots,
+            final BiFunction<OperatorAlternative.Alternative, Configuration, CardinalityPusher> pusherRetriever,
+            final Configuration configuration) {
         super(Slot.toIndices(relevantInputSlots), Slot.toIndices(relevantOutputSlots));
         this.alternativePushers = loopHeadAlternative.getAlternatives().stream()
-                .map(alternative -> {
-                    final CardinalityPusher alternativePusher = pusherRetriever.apply(alternative, configuration);
-                    return new Tuple<>(alternative, alternativePusher);
-                })
-                .collect(Collectors.toList());
+                .map(alternative -> new Tuple<>(alternative, pusherRetriever.apply(alternative, configuration)))
+                .toList();
     }
-
 
     @Override
-    public void pushThroughAlternatives(OptimizationContext.OperatorContext opCtx, Configuration configuration) {
+    public void pushThroughAlternatives(final OptimizationContext.OperatorContext opCtx,
+            final Configuration configuration) {
         final OptimizationContext optCtx = opCtx.getOptimizationContext();
-        for (Tuple<OperatorAlternative.Alternative, CardinalityPusher> alternativePusher : this.alternativePushers) {
-            LoopHeadOperator loopHeadOperator = (LoopHeadOperator) alternativePusher.field0.getContainedOperator();
+        for (final Tuple<OperatorAlternative.Alternative, CardinalityPusher> alternativePusher : this.alternativePushers) {
+            final LoopHeadOperator loopHeadOperator = (LoopHeadOperator) alternativePusher.getField0()
+                    .getContainedOperator();
             final OptimizationContext.OperatorContext lhoCtx = optCtx.getOperatorContext(loopHeadOperator);
-            alternativePusher.field1.push(lhoCtx, configuration);
+            alternativePusher.getField1().push(lhoCtx, configuration);
         }
     }
-
 }

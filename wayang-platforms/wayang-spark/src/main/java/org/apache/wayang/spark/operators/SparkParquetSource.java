@@ -18,9 +18,17 @@
 
 package org.apache.wayang.spark.operators;
 
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.IntStream;
+
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
+
 import org.apache.wayang.basic.data.Record;
 import org.apache.wayang.basic.operators.ParquetSource;
 import org.apache.wayang.core.optimizer.OptimizationContext;
@@ -32,16 +40,12 @@ import org.apache.wayang.core.util.Tuple;
 import org.apache.wayang.spark.channels.RddChannel;
 import org.apache.wayang.spark.execution.SparkExecutor;
 
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
 /**
  * Provides a {@link Collection} to a Spark job.
  */
 public class SparkParquetSource extends ParquetSource implements SparkExecutionOperator {
 
-    public SparkParquetSource(String inputUrl, String[] projection) {
+    public SparkParquetSource(final String inputUrl, final String[] projection) {
         super(inputUrl, projection);
     }
 
@@ -50,48 +54,48 @@ public class SparkParquetSource extends ParquetSource implements SparkExecutionO
      *
      * @param that that should be copied
      */
-    public SparkParquetSource(ParquetSource that) {
+    public SparkParquetSource(final ParquetSource that) {
         super(that);
     }
 
     @Override
     public Tuple<Collection<ExecutionLineageNode>, Collection<ChannelInstance>> evaluate(
-            ChannelInstance[] inputs,
-            ChannelInstance[] outputs,
-            SparkExecutor sparkExecutor,
-            OptimizationContext.OperatorContext operatorContext) {
+            final ChannelInstance[] inputs,
+            final ChannelInstance[] outputs,
+            final SparkExecutor sparkExecutor,
+            final OptimizationContext.OperatorContext operatorContext) {
 
         assert inputs.length == this.getNumInputs();
         assert outputs.length == this.getNumOutputs();
 
-        RddChannel.Instance output = (RddChannel.Instance) outputs[0];
+        final RddChannel.Instance output = (RddChannel.Instance) outputs[0];
 
         Dataset<Row> table = sparkExecutor.ss.read().parquet(this.getInputUrl().trim());
 
         // Reads a projection, if any (loads the complete file if no projection defined)
-        String[] projection = this.getProjection();
+        final String[] projection = this.getProjection();
         if (projection != null && projection.length > 0) {
             table = table.selectExpr(projection);
         }
 
-        // Wrap dataset into a JavaRDD and convert Row's to Record's
-        JavaRDD<Record> rdd = table.toJavaRDD().map(row -> {
-            List<Object> values = IntStream.range(0, row.size())
+        // Wrap dataset into a JavaRDD and convert Rows to Records
+        final JavaRDD<Record> rdd = table.toJavaRDD().map(row -> {
+            final List<Serializable> values = IntStream.range(0, row.size())
                     .mapToObj(row::get)
-                    .collect(Collectors.toList());
+                    .map(Serializable.class::cast) //might be unsafe
+                    .toList();
             return new Record(values);
         });
+
         this.name(rdd);
         output.accept(rdd, sparkExecutor);
 
-        ExecutionLineageNode prepareLineageNode = new ExecutionLineageNode(operatorContext);
+        final ExecutionLineageNode prepareLineageNode = new ExecutionLineageNode(operatorContext);
         prepareLineageNode.add(LoadProfileEstimators.createFromSpecification(
-                "wayang.spark.parquetsource.load.prepare", sparkExecutor.getConfiguration()
-        ));
-        ExecutionLineageNode mainLineageNode = new ExecutionLineageNode(operatorContext);
+                "wayang.spark.parquetsource.load.prepare", sparkExecutor.getConfiguration()));
+        final ExecutionLineageNode mainLineageNode = new ExecutionLineageNode(operatorContext);
         mainLineageNode.add(LoadProfileEstimators.createFromSpecification(
-                "wayang.spark.parquetsource.load.main", sparkExecutor.getConfiguration()
-        ));
+                "wayang.spark.parquetsource.load.main", sparkExecutor.getConfiguration()));
         output.getLineage().addPredecessor(mainLineageNode);
 
         return prepareLineageNode.collectAndMark();
@@ -103,12 +107,12 @@ public class SparkParquetSource extends ParquetSource implements SparkExecutionO
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedInputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedInputChannels(final int index) {
         throw new UnsupportedOperationException(String.format("%s does not have input channels.", this));
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedOutputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedOutputChannels(final int index) {
         return Collections.singletonList(RddChannel.UNCACHED_DESCRIPTOR);
     }
 

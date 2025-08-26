@@ -18,7 +18,14 @@
 
 package org.apache.wayang.flink.operators;
 
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+
 import org.apache.flink.api.java.DataSet;
+
 import org.apache.wayang.basic.data.Tuple2;
 import org.apache.wayang.basic.operators.CartesianOperator;
 import org.apache.wayang.core.optimizer.OptimizationContext;
@@ -32,22 +39,17 @@ import org.apache.wayang.core.util.Tuple;
 import org.apache.wayang.flink.channels.DataSetChannel;
 import org.apache.wayang.flink.execution.FlinkExecutor;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-
 /**
  * Flink implementation of the {@link CartesianOperator}.
  */
-public class FlinkCartesianOperator<InputType0, InputType1>
-        extends CartesianOperator<InputType0, InputType1>
-        implements FlinkExecutionOperator  {
+public class FlinkCartesianOperator<I0 extends Serializable, I1 extends Serializable>
+        extends CartesianOperator<I0, I1>
+        implements FlinkExecutionOperator {
 
     /**
      * Creates a new instance.
      */
-    public FlinkCartesianOperator(DataSetType<InputType0> inputType0, DataSetType<InputType1> inputType1) {
+    public FlinkCartesianOperator(final DataSetType<I0> inputType0, final DataSetType<I1> inputType1) {
         super(inputType0, inputType1);
     }
 
@@ -56,16 +58,16 @@ public class FlinkCartesianOperator<InputType0, InputType1>
      *
      * @param that that should be copied
      */
-    public FlinkCartesianOperator(CartesianOperator<InputType0, InputType1> that) {
+    public FlinkCartesianOperator(final CartesianOperator<I0, I1> that) {
         super(that);
     }
 
     @Override
     public Tuple<Collection<ExecutionLineageNode>, Collection<ChannelInstance>> evaluate(
-            ChannelInstance[] inputs,
-            ChannelInstance[] outputs,
-            FlinkExecutor flinkExecutor,
-            OptimizationContext.OperatorContext operatorContext) {
+            final ChannelInstance[] inputs,
+            final ChannelInstance[] outputs,
+            final FlinkExecutor flinkExecutor,
+            final OptimizationContext.OperatorContext operatorContext) {
         assert inputs.length == this.getNumInputs();
         assert outputs.length == this.getNumOutputs();
 
@@ -73,26 +75,17 @@ public class FlinkCartesianOperator<InputType0, InputType1>
         final DataSetChannel.Instance input1 = (DataSetChannel.Instance) inputs[1];
         final DataSetChannel.Instance output = (DataSetChannel.Instance) outputs[0];
 
+        final DataSet<I0> dataSetInput0 = input0.provideDataSet();
+        final DataSet<I1> dataSetInput1 = input1.provideDataSet();
 
-        final DataSet<InputType0> dataSetInput0 = input0.provideDataSet();
-        final DataSet<InputType1> dataSetInput1 = input1.provideDataSet();
-
-        final DataSet<Tuple2<InputType0, InputType1>> datasetOutput = dataSetInput0.cross(dataSetInput1).with(
-                (dataInput0, dataInput1) -> {
-                    return new Tuple2<>(dataInput0, dataInput1);
-                }
-        )
-        .setParallelism(flinkExecutor.fee.getParallelism())
-        .returns(ReflectionUtils.specify(Tuple2.class));
+        final DataSet<Tuple2<I0, I1>> datasetOutput = dataSetInput0.cross(dataSetInput1).with(
+                (dataInput0, dataInput1) -> new Tuple2<>(dataInput0, dataInput1))
+                .setParallelism(flinkExecutor.fee.getParallelism())
+                .returns(ReflectionUtils.specify(Tuple2.class));
 
         output.accept(datasetOutput, flinkExecutor);
 
         return ExecutionOperator.modelLazyExecution(inputs, outputs, operatorContext);
-    }
-
-    @Override
-    protected ExecutionOperator createCopy() {
-        return new FlinkCartesianOperator<>(this.getInputType0(), this.getInputType1());
     }
 
     @Override
@@ -101,13 +94,13 @@ public class FlinkCartesianOperator<InputType0, InputType1>
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedInputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedInputChannels(final int index) {
         assert index <= this.getNumInputs() || (index == 0 && this.getNumInputs() == 0);
         return Arrays.asList(DataSetChannel.DESCRIPTOR, DataSetChannel.DESCRIPTOR_MANY);
     }
 
     @Override
-    public List<ChannelDescriptor> getSupportedOutputChannels(int index) {
+    public List<ChannelDescriptor> getSupportedOutputChannels(final int index) {
         assert index <= this.getNumOutputs() || (index == 0 && this.getNumOutputs() == 0);
         return Collections.singletonList(DataSetChannel.DESCRIPTOR);
     }
@@ -115,5 +108,10 @@ public class FlinkCartesianOperator<InputType0, InputType1>
     @Override
     public boolean containsAction() {
         return false;
+    }
+
+    @Override
+    protected ExecutionOperator createCopy() {
+        return new FlinkCartesianOperator<>(this.getInputType0(), this.getInputType1());
     }
 }

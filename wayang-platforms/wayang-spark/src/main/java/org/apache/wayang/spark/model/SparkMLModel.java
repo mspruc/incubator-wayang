@@ -18,14 +18,16 @@
 
 package org.apache.wayang.spark.model;
 
+import java.io.Serializable;
+
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.wayang.basic.data.Tuple2;
 import org.apache.wayang.basic.model.Model;
 
-public interface SparkMLModel<X, Y> extends Model {
+public interface SparkMLModel<X extends Serializable, Y extends Serializable> extends Model {
 
     @Deprecated
-    default JavaRDD<Tuple2<X, Y>> transform(JavaRDD<X> input) {
+    default JavaRDD<Tuple2<X, Y>> transform(final JavaRDD<X> input) {
         throw new UnsupportedOperationException("This method has been deprecated. Please use predict instead.");
     }
 

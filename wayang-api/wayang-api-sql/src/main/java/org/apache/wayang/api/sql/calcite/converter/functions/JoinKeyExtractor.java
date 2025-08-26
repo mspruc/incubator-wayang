@@ -18,17 +18,25 @@
 
 package org.apache.wayang.api.sql.calcite.converter.functions;
 
-import org.apache.wayang.core.function.FunctionDescriptor;
-import org.apache.wayang.basic.data.Record;
+import java.io.Serializable;
 
-public class JoinKeyExtractor implements FunctionDescriptor.SerializableFunction<Record, Object> {
+import org.apache.wayang.basic.data.Record;
+import org.apache.wayang.core.function.FunctionDescriptor;
+
+public class JoinKeyExtractor implements FunctionDescriptor.SerializableFunction<Record, Serializable> {
     private final int index;
 
-    public JoinKeyExtractor(int index) {
+    public JoinKeyExtractor(final int index) {
         this.index = index;
     }
 
-    public Object apply(final Record record) {
-        return record.getField(index);
+    public Serializable apply(final Record rec) {
+        /**
+         * Eager cast to serializable as jdbc return types should all be serializable by
+         * default.
+         */
+        assert rec instanceof Serializable : "JDBC did not produce serializable fields in record.";
+
+        return (Serializable) rec.getField(index);
     }
 }
