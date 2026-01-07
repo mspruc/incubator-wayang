@@ -31,6 +31,7 @@ import org.apache.wayang.core.api.WayangContext
 import org.apache.wayang.core.plan.wayangplan._
 import org.apache.wayang.core.types.DataSetType
 
+import scala.annotation.JvmOverloads
 import scala.reflect.ClassTag
 
 /**
