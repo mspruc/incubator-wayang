@@ -70,6 +70,7 @@ class JavaPlanBuilder(wayangCtx: WayangContext, jobName: String) {
    * @param preferDataset when {@code true}, emit a Dataset-backed channel
    * @return [[DataQuantaBuilder]] for the file
    */
+  @JvmOverloads
   def readParquet(url: String,
                   projection: Array[String] = null,
                   preferDataset: Boolean = false): UnarySourceDataQuantaBuilder[UnarySourceDataQuantaBuilder[_, Record], Record] =
