@@ -71,7 +71,7 @@ class JavaPlanBuilder(wayangCtx: WayangContext, jobName: String) {
    * @return [[DataQuantaBuilder]] for the file
    */
   def readParquet(url: String,
-                  projection: Array[String] = null): UnarySourceDataQuantaBuilder[UnarySourceDataQuantaBuilder[_, Record], Record] =
+                  projection: Array[String]): UnarySourceDataQuantaBuilder[UnarySourceDataQuantaBuilder[_, Record], Record] =
     readParquet(url, projection, preferDataset = false)
 
   def readParquet(url: String,
