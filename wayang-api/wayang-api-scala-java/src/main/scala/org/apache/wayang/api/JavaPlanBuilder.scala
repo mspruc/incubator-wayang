@@ -31,7 +31,6 @@ import org.apache.wayang.core.api.WayangContext
 import org.apache.wayang.core.plan.wayangplan._
 import org.apache.wayang.core.types.DataSetType
 
-import scala.annotation.JvmOverloads
 import scala.reflect.ClassTag
 
 /**
@@ -71,7 +70,10 @@ class JavaPlanBuilder(wayangCtx: WayangContext, jobName: String) {
    * @param preferDataset when {@code true}, emit a Dataset-backed channel
    * @return [[DataQuantaBuilder]] for the file
    */
-  @JvmOverloads
+  def readParquet(url: String,
+                  projection: Array[String] = null): UnarySourceDataQuantaBuilder[UnarySourceDataQuantaBuilder[_, Record], Record] =
+    readParquet(url, projection, preferDataset = false)
+
   def readParquet(url: String,
                   projection: Array[String] = null,
                   preferDataset: Boolean = false): UnarySourceDataQuantaBuilder[UnarySourceDataQuantaBuilder[_, Record], Record] =
