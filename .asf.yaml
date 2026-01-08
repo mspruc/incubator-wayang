@@ -16,13 +16,23 @@
 #
 
 github:
-  description: Building An Industrial Federated Learning Framework
-  homepage: https://wayang.apache.org/
+  description: Apache Wayang(incubating) is the first cross-platform data processing system.
+  homepage: https://wayang.incubator.apache.org/
   labels:
-    - machine learning
-    - algorithm
-    - privacy-preserving
-    - federated-learning
+    - big-data 
+    - apache
+    - data-management-platform
+    - java
+    - scala
+    - cross-platform
+    - data-processing
+    - hadoop
+    - spark
+    - jdbc
+    - open-source
+    - middleware
+    - performance
+    - distributed-system
   features:
     # Disable wiki for documentation
     wiki: false
