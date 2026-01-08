@@ -42,6 +42,7 @@ import org.apache.wayang.core.platform.Platform;
 import org.apache.wayang.jdbc.channels.SqlQueryChannel;
 import org.apache.wayang.jdbc.channels.SqlQueryChannel.Instance;
 import org.apache.wayang.jdbc.operators.JdbcFilterOperator;
+import org.apache.wayang.jdbc.operators.JdbcGlobalReduceOperator;
 import org.apache.wayang.jdbc.operators.JdbcJoinOperator;
 import org.apache.wayang.jdbc.operators.JdbcProjectionOperator;
 import org.apache.wayang.jdbc.operators.JdbcTableSource;
@@ -67,16 +68,12 @@ public class JdbcTreeExecutor extends ExecutorTemplate {
         return JdbcTreeExecutor.visitTask(operator, edgeMap, 0, new AliasMap());
     }
 
-    // TODO: missing support for aliases
     private static String visitTask(final Operator operator, final Map<Operator, List<Operator>> edgeMap,
             final int subqueryCount,
             final AliasMap aliasMap) {
-        System.out.println("visiting op: " + operator);
-        System.out.println("edge map: " + edgeMap);
         final List<Operator> nextOperators = edgeMap.get(operator);
 
         if (operator instanceof final JdbcJoinOperator join) {
-            System.out.println("JOINING :D");
             assert nextOperators.size() == 2
                     : "amount of next next operators in join operator was not two, got: " +
                             nextOperators.size();
@@ -110,9 +107,6 @@ public class JdbcTreeExecutor extends ExecutorTemplate {
                     joinKeyDescriptor1.getAliases().stream())
                     .toArray(String[]::new);
 
-            System.out.println("visitTask projections: " + Arrays.toString(projections));
-            System.out.println("visitTask alias: " + Arrays.toString(aliases));
-
             assert projections.length == aliases.length
                     : "Amount of projections did not match the amount of aliases.";
 
@@ -125,21 +119,21 @@ public class JdbcTreeExecutor extends ExecutorTemplate {
             final String selectStatement = Arrays.stream(aliasedProjections)
                     .collect(Collectors.joining(","));
 
-            // setup join filter condition
+            // setup join condition
             final String leftField = joinKeyDescriptor0.getFieldNames().get(joinKeyDescriptor0.getkeys().get(0));
             final String rightField = joinKeyDescriptor1.getFieldNames().get(joinKeyDescriptor1.getkeys().get(0));
 
             assert leftField != null : "Left join field in filter was null.";
             assert rightField != null : "Right join field in filter was null.";
 
-            final String filter = String.format("%s.%s = %s.%s",
+            final String condition = String.format("%s.%s = %s.%s",
                     leftAlias, leftField,
                     rightAlias, rightField);
 
             return "SELECT " + selectStatement + " FROM (" + left + ") AS left" + alias +
                     " INNER JOIN (" + right
                     + ") AS right"
-                    + alias + "  ON " + filter;
+                    + alias + "  ON " + condition;
         } else if (operator instanceof final JdbcProjectionOperator projection) {
             assert nextOperators.size() == 1
                     : "amount of next operators of projection operator was not one, got: "
@@ -166,6 +160,14 @@ public class JdbcTreeExecutor extends ExecutorTemplate {
 
             return "SELECT * FROM (" + input + ") AS " + alias + " WHERE "
                     + filter.getPredicateDescriptor().getSqlImplementation();
+        } else if (operator instanceof final JdbcGlobalReduceOperator reduce) {
+            assert nextOperators.size() == 1
+                    : "amount of next operators of filter operator was not one, got: "
+                            + nextOperators.size();
+            final String input = visitTask(nextOperators.get(0), edgeMap, subqueryCount + 1, aliasMap);
+            final String alias = aliasMap.computeIfAbsent(operator);
+
+            return "SELECT " + reduce.getReduceDescriptor().getSqlImplementation()  + " FROM (" + input + ") AS " + alias;
         } else if (operator instanceof final JdbcTableSource table) {
             assert nextOperators.size() == 0
                     : "amount of next operators of reduce operator was not zero, got: "
@@ -203,8 +205,6 @@ public class JdbcTreeExecutor extends ExecutorTemplate {
                 .map(task -> visitTask(task.getOperator(), operatorMap, 0, new AliasMap()))
                 .findAny()
                 .orElseThrow(() -> new WayangException("Could not produce Sql in JdbcExecutor."));
-
-        System.out.println("derived query: " + query);
 
         final List<ExecutionTask> allTasksWithTableSources = Arrays
                 .stream(stage.getAllTasks().toArray(ExecutionTask[]::new))

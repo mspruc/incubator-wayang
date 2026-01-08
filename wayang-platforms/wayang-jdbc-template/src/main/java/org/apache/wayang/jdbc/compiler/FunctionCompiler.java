@@ -18,8 +18,10 @@
 
 package org.apache.wayang.jdbc.compiler;
 
+import org.apache.wayang.basic.data.Record;
 import org.apache.wayang.core.function.FunctionDescriptor;
 import org.apache.wayang.core.function.PredicateDescriptor;
+import org.apache.wayang.core.function.ReduceDescriptor;
 
 /**
  * Compiles {@link FunctionDescriptor}s to SQL clauses.
@@ -32,10 +34,19 @@ public class FunctionCompiler {
      * @param descriptor describes the predicate
      * @return a compiled SQL {@code WHERE} clause
      */
-    public String compile(PredicateDescriptor descriptor) {
+    public String compile(final PredicateDescriptor<Record> descriptor) {
         final String sqlImplementation = descriptor.getSqlImplementation();
         assert sqlImplementation != null;
         return sqlImplementation;
+    }
+
+    /**
+     * 
+     * @param descriptor
+     * @return
+     */
+    public String compile(final ReduceDescriptor<Record> descriptor) {
+        return descriptor.getSqlImplementation();
     }
 
 }

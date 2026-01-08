@@ -33,6 +33,7 @@ import org.apache.wayang.basic.data.Tuple2;
 import org.apache.wayang.basic.function.JoinKeyDescriptor;
 import org.apache.wayang.basic.operators.JoinOperator;
 import org.apache.wayang.basic.operators.MapOperator;
+import org.apache.wayang.basic.operators.TableSource;
 import org.apache.wayang.core.plan.wayangplan.Operator;
 import org.apache.wayang.core.util.ReflectionUtils;
 
@@ -64,7 +65,7 @@ public class WayangJoinVisitor extends WayangRelNodeVisitor<WayangJoin> {
         // offset of the index in the right child
         final int offset = wayangRelNode.getInput(0).getRowType().getFieldCount();
 
-        final int leftKeyIndex  = keys.get(0) < keys.get(1) ? keys.get(0)          : keys.get(1);
+        final int leftKeyIndex = keys.get(0) < keys.get(1) ? keys.get(0) : keys.get(1);
         final int rightKeyIndex = keys.get(0) < keys.get(1) ? keys.get(1) - offset : keys.get(0) - offset;
 
         final List<String> leftProjectionAliases = wayangRelNode.getLeft().getRowType().getFieldNames();
@@ -73,11 +74,6 @@ public class WayangJoinVisitor extends WayangRelNodeVisitor<WayangJoin> {
         final List<String> rightProjectionAliases = wayangRelNode.getRight().getRowType().getFieldNames();
         final List<String> rightProjection = wayangRelNode.getRowType().getFieldNames().stream()
                 .skip(rightProjectionAliases.size()).toList();
-
-        System.out.println("left projection: " + leftProjection);
-        System.out.println("left aliases: " + leftProjectionAliases);
-        System.out.println("right projection: " + rightProjection);
-        System.out.println("right aliases: " + rightProjectionAliases);
 
         final JoinKeyDescriptor leftJoinKeyDescriptor = new JoinKeyDescriptor(List.of(leftKeyIndex),
                 leftProjection, leftProjectionAliases);
