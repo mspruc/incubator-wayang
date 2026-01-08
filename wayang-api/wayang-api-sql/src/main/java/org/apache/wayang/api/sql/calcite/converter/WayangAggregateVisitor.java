@@ -18,17 +18,19 @@
 
 package org.apache.wayang.api.sql.calcite.converter;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.calcite.rel.core.AggregateCall;
+import org.apache.calcite.rel.type.RelDataTypeField;
 
 import org.apache.wayang.api.sql.calcite.converter.functions.AggregateAddCols;
 import org.apache.wayang.api.sql.calcite.converter.functions.AggregateFunction;
-import org.apache.wayang.api.sql.calcite.converter.functions.AggregateKeyExtractor;
 import org.apache.wayang.api.sql.calcite.converter.functions.AggregateGetResult;
+import org.apache.wayang.api.sql.calcite.converter.functions.AggregateKeyExtractor;
 import org.apache.wayang.api.sql.calcite.rel.WayangAggregate;
-
 import org.apache.wayang.basic.data.Record;
 import org.apache.wayang.basic.operators.GlobalReduceOperator;
 import org.apache.wayang.basic.operators.MapOperator;
@@ -57,15 +59,43 @@ public class WayangAggregateVisitor extends WayangRelNodeVisitor<WayangAggregate
                 Record.class);
         childOp.connectTo(0, mapOperator, 0);
 
-        final Operator aggregateOperator = wayangRelNode.getGroupCount() > 0 ? new ReduceByOperator<>(
-                new TransformationDescriptor<>(new AggregateKeyExtractor(groupingFields), Record.class, Object.class),
-                new ReduceDescriptor<>(new AggregateFunction(aggregateCalls),
-                        DataUnitType.createGrouped(Record.class),
-                        DataUnitType.createBasicUnchecked(Record.class)))
-                : new GlobalReduceOperator<>(
-                        new ReduceDescriptor<>(new AggregateFunction(aggregateCalls),
-                                DataUnitType.createGrouped(Record.class),
-                                DataUnitType.createBasicUnchecked(Record.class)));
+        final Operator aggregateOperator;
+
+        if (wayangRelNode.getGroupCount() > 0) {
+            aggregateOperator = new ReduceByOperator<>(
+                    new TransformationDescriptor<>(
+                            new AggregateKeyExtractor(groupingFields), Record.class,
+                            Object.class),
+                    new ReduceDescriptor<>(new AggregateFunction(aggregateCalls),
+                            DataUnitType.createGrouped(Record.class),
+                            DataUnitType.createBasicUnchecked(Record.class)));
+        } else {
+            final List<String> reductionFunctions = wayangRelNode.getNamedAggCalls().stream()
+                    .map(agg -> agg.left.getAggregation().getName()).toList();
+
+            final List<String> fields = wayangRelNode.getInput().getRowType().getFieldList().stream()
+                    .map(RelDataTypeField::getName).toList();
+
+            final List<String> aliases = wayangRelNode.getRowType().getFieldList().stream()
+                    .map(RelDataTypeField::getName).toList();
+
+            final String[] reductionStatements = new String[reductionFunctions.size()];
+
+            System.out.println("reduction functions: " + reductionFunctions);
+            System.out.println("fields: " + fields);
+            System.out.println("aliases: " + aliases);
+            System.out.println("reduction statements: " + Arrays.toString(reductionStatements));
+            for (int i = 0; i < reductionStatements.length; i++) {
+                reductionStatements[i] = reductionFunctions.get(i) + "(" + fields.get(i) + ") AS " + aliases.get(i);
+            }
+
+            aggregateOperator = new GlobalReduceOperator<>(
+                    new ReduceDescriptor<>(new AggregateFunction(aggregateCalls),
+                            DataUnitType.createGrouped(Record.class),
+                            DataUnitType.createBasicUnchecked(Record.class))
+                            .withSqlImplementation(
+                                    Arrays.stream(reductionStatements).collect(Collectors.joining(","))));
+        }
 
         mapOperator.connectTo(0, aggregateOperator, 0);
 
