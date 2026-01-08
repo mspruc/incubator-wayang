@@ -29,6 +29,7 @@ import org.apache.wayang.core.util.ReflectionUtils;
 import org.apache.wayang.jdbc.channels.SqlQueryChannel;
 import org.apache.wayang.jdbc.execution.DatabaseDescriptor;
 import org.apache.wayang.jdbc.execution.JdbcExecutor;
+import org.apache.wayang.jdbc.execution.JdbcTreeExecutor;
 
 import java.sql.Connection;
 
@@ -73,7 +74,7 @@ public abstract class JdbcPlatformTemplate extends Platform {
 
     @Override
     public Executor.Factory getExecutorFactory() {
-        return job -> new JdbcExecutor(this, job);
+        return job -> new JdbcTreeExecutor(this, job);
     }
 
     @Override

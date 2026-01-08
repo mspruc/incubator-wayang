@@ -27,17 +27,26 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
+import org.apache.calcite.DataContext;
+import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
+import org.apache.calcite.linq4j.Enumerable;
+import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
@@ -47,7 +56,10 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.Join;
+import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalTableScan;
 import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
 import org.apache.calcite.rel.rules.CoreRules;
@@ -57,15 +69,20 @@ import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.schema.ScannableTable;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.impl.AbstractTable;
+import org.apache.calcite.sql.JoinType;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperator;
+import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.tools.RuleSets;
 import org.apache.wayang.api.sql.calcite.convention.WayangConvention;
@@ -75,6 +92,7 @@ import org.apache.wayang.api.sql.calcite.optimizer.Optimizer;
 import org.apache.wayang.api.sql.calcite.rules.WayangRules;
 import org.apache.wayang.api.sql.calcite.schema.SchemaUtils;
 import org.apache.wayang.api.sql.calcite.utils.ModelParser;
+import org.apache.wayang.api.sql.calcite.utils.PrintUtils;
 import org.apache.wayang.api.sql.context.SqlContext;
 import org.apache.wayang.basic.data.Record;
 import org.apache.wayang.basic.data.Tuple2;
@@ -88,8 +106,11 @@ import org.apache.wayang.core.plan.wayangplan.PlanTraversal;
 import org.apache.wayang.core.plan.wayangplan.WayangPlan;
 import org.apache.wayang.java.Java;
 import org.apache.wayang.jdbc.execution.JdbcExecutor;
+import org.apache.wayang.jdbc.execution.JdbcTreeExecutor;
+import org.apache.wayang.jdbc.operators.JdbcJoinOperator;
 import org.apache.wayang.jdbc.operators.JdbcProjectionOperator;
 import org.apache.wayang.jdbc.operators.JdbcTableSource;
+import org.apache.wayang.postgres.mapping.JoinMapping;
 import org.apache.wayang.postgres.mapping.ProjectionMapping;
 import org.apache.wayang.spark.Spark;
 import org.json.simple.parser.ParseException;
@@ -213,19 +234,175 @@ class SqlToWayangRelTest {
         final WayangPlan plan = Optimizer.convert(wayangRel, new ArrayList<Record>());
 
         final ProjectionMapping projectionMapping = new ProjectionMapping();
-        final PlanTransformation projectionTransformation = projectionMapping.getTransformations().iterator().next().thatReplaces();
+        final PlanTransformation projectionTransformation = projectionMapping.getTransformations().iterator()
+                .next()
+                .thatReplaces();
 
         plan.applyTransformations(List.of(projectionTransformation));
 
-        final Collection<Operator> operators = PlanTraversal.upstream().traverse(plan.getSinks()).getTraversedNodes();
+        final Collection<Operator> operators = PlanTraversal.upstream().traverse(plan.getSinks())
+                .getTraversedNodes();
 
-        final JdbcTableSource table = operators.stream().filter(op -> op instanceof JdbcTableSource).map(JdbcTableSource.class::cast).findFirst().orElseThrow();
-        final JdbcProjectionOperator projection = operators.stream().filter(op -> op instanceof JdbcProjectionOperator).map(JdbcProjectionOperator.class::cast).findFirst().orElseThrow();
+        final JdbcTableSource table = operators.stream().filter(op -> op instanceof JdbcTableSource)
+                .map(JdbcTableSource.class::cast).findFirst().orElseThrow();
+        final JdbcProjectionOperator projection = operators.stream()
+                .filter(op -> op instanceof JdbcProjectionOperator)
+                .map(JdbcProjectionOperator.class::cast).findFirst().orElseThrow();
 
         final JdbcExecutor jdbcExecutor = mock();
-        final StringBuilder query = JdbcExecutor.createSqlString(jdbcExecutor, table, List.of(), projection, List.of());
+        final StringBuilder query = JdbcExecutor.createSqlString(jdbcExecutor, table, List.of(), projection,
+                List.of());
 
         assertEquals("SELECT ID, NAME FROM T1;", query.toString());
+    }
+
+    private static final class InMemoryScannableTable extends AbstractTable implements ScannableTable {
+        private final RelDataType rowType;
+        private final List<Object[]> rows;
+
+        InMemoryScannableTable(final RelDataType rowType, final List<Object[]> rows) {
+            this.rowType = rowType;
+            this.rows = rows;
+        }
+
+        @Override
+        public RelDataType getRowType(final RelDataTypeFactory typeFactory) {
+            return rowType;
+        }
+
+        @Override
+        public Enumerable<Object[]> scan(final DataContext root) {
+            return Linq4j.asEnumerable(rows);
+        }
+    }
+
+    @Test
+    void jdbcTreeExecutorJoinTest() throws Exception {
+        final JavaTypeFactoryImpl typeFactory = new JavaTypeFactoryImpl();
+
+        final RelDataType employeeRowType = new Builder(typeFactory)
+                .add("ID", typeFactory.createJavaType(Integer.class))
+                .add("NAME", typeFactory.createJavaType(String.class))
+                .build();
+
+        final RelDataType wageRowType = new Builder(typeFactory)
+                .add("ID", typeFactory.createJavaType(Integer.class))
+                .add("WAGE", typeFactory.createJavaType(Integer.class))
+                .build();
+
+        Class.forName("org.apache.calcite.jdbc.Driver");
+        final Properties info = new Properties();
+        info.setProperty("lex", "JAVA");
+        final Connection connection = DriverManager.getConnection("jdbc:calcite:", info);
+        final CalciteConnection calciteConnection = connection.unwrap(CalciteConnection.class);
+        final SchemaPlus rootSchema = calciteConnection.getRootSchema();
+
+        final List<Object[]> employeeData = List.of(
+                new Object[] { 1, "Alice" },
+                new Object[] { 2, "Bob" });
+
+        final List<Object[]> wageData = List.of(
+                new Object[] { 1, 3600 },
+                new Object[] { 2, 4000 });
+
+        rootSchema.add("Employees", new InMemoryScannableTable(employeeRowType, employeeData));
+        rootSchema.add("Wages", new InMemoryScannableTable(wageRowType, wageData));
+
+        final VolcanoPlanner planner = new VolcanoPlanner(RelOptCostImpl.FACTORY, Contexts.empty());
+        planner.addRelTraitDef(ConventionTraitDef.INSTANCE);
+
+        final FrameworkConfig config = Frameworks.newConfigBuilder()
+                .defaultSchema(rootSchema) // use your `rootSchema` from above
+                .costFactory(RelOptCostImpl.FACTORY)
+                .build();
+
+        final RelBuilder relBuilder = RelBuilder.create(config);
+
+        final RelNode relTree = relBuilder.scan("Employees")
+                .scan("Wages")
+                .join(JoinRelType.INNER, relBuilder.call(SqlStdOperatorTable.EQUALS,
+                        relBuilder.field(2, 0, "ID"),
+                        relBuilder.field(2, 1, "ID")))
+                .build();
+
+        final SqlDialect dialect = SqlDialect.DatabaseProduct.CALCITE.getDialect();
+        final RelToSqlConverter converter = new RelToSqlConverter(dialect);
+        final SqlNode sqlNode = converter.visitRoot(relTree).asStatement();
+
+        final Properties configProperties = Optimizer.ConfigProperties.getDefaults();
+        final RelDataTypeFactory relDataTypeFactory = new JavaTypeFactoryImpl();
+
+        final Optimizer optimizer = Optimizer.create(
+                CalciteSchema.from(rootSchema),
+                configProperties,
+                relDataTypeFactory);
+
+        final SqlNode validatedSqlNode = optimizer.validate(sqlNode);
+        final RelNode relNode = optimizer.convert(validatedSqlNode);
+
+        final RuleSet rules = RuleSets.ofList(
+                CoreRules.FILTER_INTO_JOIN,
+                WayangRules.WAYANG_TABLESCAN_RULE,
+                WayangRules.WAYANG_TABLESCAN_ENUMERABLE_RULE,
+                WayangRules.WAYANG_PROJECT_RULE,
+                WayangRules.WAYANG_FILTER_RULE,
+                WayangRules.WAYANG_JOIN_RULE,
+                WayangRules.WAYANG_AGGREGATE_RULE,
+                WayangRules.WAYANG_SORT_RULE);
+
+        final RelNode wayangRel = optimizer.optimize(
+                relNode,
+                relNode.getTraitSet().plus(WayangConvention.INSTANCE),
+                rules);
+
+        final WayangPlan plan = Optimizer.convert(wayangRel, new ArrayList<Record>());
+
+        PrintUtils.print("WayangRel", wayangRel);
+
+        final ProjectionMapping projectionMapping = new ProjectionMapping();
+        final PlanTransformation projectionTransformation = projectionMapping.getTransformations().iterator()
+                .next()
+                .thatReplaces();
+
+        final JoinMapping joinMapping = new JoinMapping();
+        final PlanTransformation joinTransformation = joinMapping.getTransformations().iterator()
+                .next()
+                .thatReplaces();
+
+        plan.applyTransformations(List.of(projectionTransformation, joinTransformation));
+
+        final Collection<Operator> operators = PlanTraversal.upstream().traverse(plan.getSinks())
+                .getTraversedNodes();
+
+        System.out.println("Found operators: " + operators);
+
+        final List<JdbcTableSource> tables = operators.stream().filter(op -> op instanceof JdbcTableSource)
+                .map(JdbcTableSource.class::cast).toList();
+        final JdbcProjectionOperator projection = operators.stream()
+                .filter(op -> op instanceof JdbcProjectionOperator)
+                .map(JdbcProjectionOperator.class::cast).findFirst().orElseThrow();
+        final JdbcJoinOperator join = operators.stream()
+                .filter(op -> op instanceof JdbcJoinOperator)
+                .map(JdbcJoinOperator.class::cast).findFirst().orElseThrow();
+
+        final HashMap<Operator, List<Operator>> edges = new HashMap<>();
+        edges.put(projection, List.of(join));
+        tables.stream().forEach(table -> edges.put(table, List.of()));
+        edges.put(join, tables.stream().collect(Collectors.toList()));
+        System.out.println("created edge mappu: " + edges);
+        System.out.println("tables: " + tables.size());
+        final String query = JdbcTreeExecutor.visitTask(projection, edges, 0);
+
+        System.out.println("Executing query: " + query);
+        try (Statement st = calciteConnection.createStatement();
+                ResultSet rs = st.executeQuery(query)) {
+            while (rs.next()) {
+                int id = rs.getInt("ID");
+                String name = rs.getString("NAME");
+
+                System.out.println("got row: " + id + ", " + name);
+            }
+        }
     }
 
     @Test
