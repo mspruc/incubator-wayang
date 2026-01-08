@@ -16,10 +16,10 @@
 #
 
 github:
-  description: Building An Industrial Federated Learning Framework
+  description: Apache Wayang is a cross-platform data processing system.
   homepage: https://wayang.apache.org/
   labels:
-    - machine learning
+    - machine-learning
     - algorithm
     - privacy-preserving
     - federated-learning
