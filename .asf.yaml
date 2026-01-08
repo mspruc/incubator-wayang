@@ -16,9 +16,21 @@
 #
 
 github:
-  description: Apache Wayang is a cross-platform data processing system.
+  description: Apache Wayang is the first cross-platform data processing system.
   homepage: https://wayang.apache.org/
   labels:
+    - big-data
+    - apache
+    - data-management-platform
+    - cross-platform
+    - data-processing
+    - java
+    - scala
+    - hadoop
+    - spark
+    - jdbc
+    - open-source
+    - distributed-system
     - machine-learning
     - algorithm
     - privacy-preserving
