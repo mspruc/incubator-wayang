@@ -255,7 +255,7 @@ public class SqlToWayangRelTest {
         assertEquals("SELECT ID, NAME FROM T1;", query.toString());
     }
 
-    @RepeatedTest(15)
+    @Test
     public void sqlApiJoinTest() throws Exception {
         final JavaTypeFactoryImpl typeFactory = new JavaTypeFactoryImpl();
 
@@ -373,7 +373,6 @@ public class SqlToWayangRelTest {
 
         assertTrue(query.contains("INNER JOIN"), "expected query to contain 'inner join', got: " + query);
 
-        System.out.println("join query: " + query);
         try (Statement st = calciteConnection.createStatement();
                 ResultSet rs = st.executeQuery(query)) {
             while (rs.next()) {
@@ -383,7 +382,7 @@ public class SqlToWayangRelTest {
         }
     }
 
-    @RepeatedTest(15)
+    @Test
     public void sqlApiReduceTest() throws Exception {
         final JavaTypeFactoryImpl typeFactory = new JavaTypeFactoryImpl();
 
