@@ -34,7 +34,6 @@ github:
     - machine-learning
     - algorithm
     - privacy-preserving
-    - federated-learning
   features:
     # Disable wiki for documentation
     wiki: false
