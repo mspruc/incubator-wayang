@@ -60,8 +60,18 @@ public abstract class JdbcProjectionOperator extends MapOperator<Record, Record>
         }
     }
 
+
+    /**
+     * @deprecated to be removed
+     * use {@link #createSqlClause()} instead.
+     */
+    @Deprecated
     @Override
     public String createSqlClause(Connection connection, FunctionCompiler compiler) {
+        return String.join(", ", this.getFunctionDescriptor().getFieldNames());
+    }
+
+    public String createSqlClause() {
         return String.join(", ", this.getFunctionDescriptor().getFieldNames());
     }
 

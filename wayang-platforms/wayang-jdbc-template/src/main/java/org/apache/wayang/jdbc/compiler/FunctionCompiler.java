@@ -23,7 +23,9 @@ import org.apache.wayang.core.function.PredicateDescriptor;
 
 /**
  * Compiles {@link FunctionDescriptor}s to SQL clauses.
+ * @deprecated to be removed.
  */
+@Deprecated
 public class FunctionCompiler {
 
     /**
@@ -31,7 +33,9 @@ public class FunctionCompiler {
      *
      * @param descriptor describes the predicate
      * @return a compiled SQL {@code WHERE} clause
+     * @deprecated to be removed
      */
+    @Deprecated
     public String compile(PredicateDescriptor descriptor) {
         final String sqlImplementation = descriptor.getSqlImplementation();
         assert sqlImplementation != null;

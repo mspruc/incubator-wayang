@@ -39,19 +39,28 @@ public interface JdbcExecutionOperator extends ExecutionOperator {
      *
      * @param compiler used to create SQL code
      * @return the SQL clause
+     * 
+     * @deprecated to be removed, use {@link #createSqlClause()} instead.
      */
+    @Deprecated
     String createSqlClause(Connection connection, FunctionCompiler compiler);
 
-    @Override
-    JdbcPlatformTemplate getPlatform();
+    
+    /**
+     * Creates a string SQL clause for this operator.
+     */
+    public String createSqlClause();
 
     @Override
-    default List<ChannelDescriptor> getSupportedInputChannels(int index) {
+    public JdbcPlatformTemplate getPlatform();
+
+    @Override
+    public default List<ChannelDescriptor> getSupportedInputChannels(int index) {
         return Collections.singletonList(this.getPlatform().getSqlQueryChannelDescriptor());
     }
 
     @Override
-    default List<ChannelDescriptor> getSupportedOutputChannels(int index) {
+    public default List<ChannelDescriptor> getSupportedOutputChannels(int index) {
         return Collections.singletonList(this.getPlatform().getSqlQueryChannelDescriptor());
     }
 

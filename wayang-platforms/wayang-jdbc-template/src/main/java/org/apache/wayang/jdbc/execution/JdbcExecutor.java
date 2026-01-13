@@ -204,13 +204,13 @@ public class JdbcExecutor extends ExecutorTemplate {
     public static StringBuilder createSqlString(final JdbcExecutor jdbcExecutor, final JdbcTableSource tableOp,
             final Collection<JdbcFilterOperator> filterTasks, JdbcProjectionOperator projectionTask,
             final Collection<JdbcJoinOperator<?>> joinTasks) {
-        final String tableName = tableOp.createSqlClause(jdbcExecutor.connection, jdbcExecutor.functionCompiler);
+        final String tableName = tableOp.createSqlClause();
         final Collection<String> conditions = filterTasks.stream()
-                .map(op -> op.createSqlClause(jdbcExecutor.connection, jdbcExecutor.functionCompiler))
+                .map(op -> op.createSqlClause())
                 .collect(Collectors.toList());
-        final String projection = projectionTask == null ? "*" : projectionTask.createSqlClause(jdbcExecutor.connection, jdbcExecutor.functionCompiler);
+        final String projection = projectionTask == null ? "*" : projectionTask.createSqlClause();
         final Collection<String> joins = joinTasks.stream()
-                .map(op -> op.createSqlClause(jdbcExecutor.connection, jdbcExecutor.functionCompiler))
+                .map(op -> op.createSqlClause())
                 .collect(Collectors.toList());
 
         final StringBuilder sb = new StringBuilder(1000);

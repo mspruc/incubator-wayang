@@ -64,8 +64,27 @@ public abstract class JdbcJoinOperator<KeyType>
         super(that);
     }
 
+    /**
+     * @deprecated to be removed
+     * use {@link #createSqlClause()} instead.
+     */
+    @Deprecated
     @Override
     public String createSqlClause(Connection connection, FunctionCompiler compiler) {
+        final Tuple<String, String> left = this.keyDescriptor0.getSqlImplementation();
+        final Tuple<String, String> right = this.keyDescriptor1.getSqlImplementation();
+        final String leftTableName = left.field0;
+        final String leftKey = left.field1;
+        final String rightTableName = right.field0;
+        final String rightKey = right.field1;
+
+        return "JOIN " + rightTableName + " ON " +
+            rightTableName + "." + rightKey
+            + "=" + leftTableName + "." + leftKey;
+    }
+
+    @Override
+    public String createSqlClause() {
         final Tuple<String, String> left = this.keyDescriptor0.getSqlImplementation();
         final Tuple<String, String> right = this.keyDescriptor1.getSqlImplementation();
         final String leftTableName = left.field0;

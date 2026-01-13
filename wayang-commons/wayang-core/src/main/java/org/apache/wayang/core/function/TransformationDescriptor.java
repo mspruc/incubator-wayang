@@ -110,7 +110,9 @@ public class TransformationDescriptor<Input, Output> extends FunctionDescriptor 
      *
      * @param tableName a SQL table name applicable in a {@code JOIN TABLE ON}.
      * @param sqlImplementation a SQL predicate applicable in a {@code WHERE} clause representing this predicate
+     * @deprecated to be removed, should be handled as a concrete implementation of a descriptor.
      */
+    @Deprecated
     public TransformationDescriptor<Input, Output> withSqlImplementation(String tableName, String sqlImplementation) {
         this.sqlImplementation = new Tuple<String, String>(tableName, sqlImplementation);
         return this;

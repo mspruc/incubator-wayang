@@ -53,8 +53,18 @@ public abstract class JdbcTableSource extends TableSource implements JdbcExecuti
         super(that);
     }
 
+
+    /**
+     * @deprecated to be removed
+     * use {@link #createSqlClause()} instead.
+     */
+    @Deprecated
     @Override
     public String createSqlClause(Connection connection, FunctionCompiler compiler) {
+        return this.getTableName();
+    }
+
+    public String createSqlClause() {
         return this.getTableName();
     }
 

@@ -101,7 +101,9 @@ public class PredicateDescriptor<Input> extends FunctionDescriptor {
      * out how to express functions in a platform-independent way.
      *
      * @param sqlImplementation a SQL predicate applicable in a {@code WHERE} clause representing this predicate
+     * @deprecated to be removed, should be handled as a concrete implementation in a descriptor.
      */
+    @Deprecated
     public PredicateDescriptor<Input> withSqlImplementation(String sqlImplementation) {
         this.sqlImplementation = sqlImplementation;
         return this;

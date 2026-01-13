@@ -43,10 +43,20 @@ public abstract class JdbcFilterOperator extends FilterOperator<Record> implemen
         super(that);
     }
 
+    /**
+     * @deprecated to be removed
+     * use {@link #createSqlClause()} instead.
+     */
+    @Deprecated
     @Override
     public String createSqlClause(Connection connection, FunctionCompiler compiler) {
         return compiler.compile(this.predicateDescriptor);
     }
+
+    public String createSqlClause() {
+        return this.predicateDescriptor.getSqlImplementation();
+    }
+
 
     @Override
     public String getLoadProfileEstimatorConfigurationKey() {
