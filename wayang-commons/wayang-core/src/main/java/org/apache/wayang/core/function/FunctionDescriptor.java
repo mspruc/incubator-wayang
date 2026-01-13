@@ -32,7 +32,8 @@ import java.util.function.*;
  */
 public abstract class FunctionDescriptor implements Serializable {
 
-    public FunctionDescriptor() {}
+    public FunctionDescriptor() {
+    }
 
     private LoadProfileEstimator loadProfileEstimator;
 
@@ -51,11 +52,14 @@ public abstract class FunctionDescriptor implements Serializable {
     /**
      * Utility method to retrieve the selectivity of a {@link FunctionDescriptor}
      *
-     * @param functionDescriptor either a {@link PredicateDescriptor}, a {@link FlatMapDescriptor}, or a {@link MapPartitionsDescriptor}
+     * @param functionDescriptor either a {@link PredicateDescriptor}, a
+     *                           {@link FlatMapDescriptor}, or a
+     *                           {@link MapPartitionsDescriptor}
      * @return the selectivity
      */
     public static Optional<ProbabilisticDoubleInterval> getSelectivity(FunctionDescriptor functionDescriptor) {
-        if (functionDescriptor == null) throw new NullPointerException();
+        if (functionDescriptor == null)
+            throw new NullPointerException();
         if (functionDescriptor instanceof PredicateDescriptor) {
             return ((PredicateDescriptor<?>) functionDescriptor).getSelectivity();
         }
@@ -73,94 +77,169 @@ public abstract class FunctionDescriptor implements Serializable {
      *
      * @param cpuEstimator the {@link LoadEstimator} for the CPU load
      * @param ramEstimator the {@link LoadEstimator} for the RAM load
-     * @deprecated Use {@link #setLoadProfileEstimator(LoadProfileEstimator)} instead.
+     * @deprecated Use {@link #setLoadProfileEstimator(LoadProfileEstimator)}
+     *             instead.
      */
     public void setLoadEstimators(LoadEstimator cpuEstimator, LoadEstimator ramEstimator) {
         this.setLoadProfileEstimator(new NestableLoadProfileEstimator(
                 cpuEstimator,
-                ramEstimator
-        ));
+                ramEstimator));
     }
 
     /**
-     * Decorates the default {@link Function} with {@link Serializable}, which is required by some distributed frameworks.
+     * Decorates the default {@link Function} with {@link Serializable}, which is
+     * required by some distributed frameworks.
+     * 
+     * @deprecated Use
+     *             {@link org.apache.wayang.core.function.SerializableFunctionInterface.SerializableFunction}
+     *             instead.
      */
     @FunctionalInterface
+    @Deprecated(forRemoval = true)
     public interface SerializableFunction<Input, Output> extends Function<Input, Output>, Serializable {
     }
 
     /**
-     * Decorates the default {@link Function} with {@link Serializable}, which is required by some distributed frameworks.
+     * Decorates the default {@link BiFunction} with {@link Serializable}, which is
+     * required by some distributed frameworks.
+     * 
+     * @deprecated Use
+     *             {@link org.apache.wayang.core.function.SerializableFunctionInterface.SerializableBiFunction}
+     *             instead.
      */
     @FunctionalInterface
-    public interface SerializableBiFunction<Input0, Input1, Output> extends BiFunction<Input0, Input1, Output>, Serializable {
+    @Deprecated(forRemoval = true)
+    public interface SerializableBiFunction<Input0, Input1, Output>
+            extends BiFunction<Input0, Input1, Output>, Serializable {
     }
-
 
     /**
      * Extends a {@link SerializableFunction} to an {@link ExtendedFunction}.
+     * 
+     * @deprecated Use
+     *             {@link org.apache.wayang.core.function.SerializableFunctionInterface.ExtendedSerializableFunction}
+     *             instead.
      */
-    public interface ExtendedSerializableFunction<Input, Output> extends SerializableFunction<Input, Output>, ExtendedFunction {
+    @Deprecated(forRemoval = true)
+    public interface ExtendedSerializableFunction<Input, Output>
+            extends SerializableFunction<Input, Output>, ExtendedFunction {
     }
 
     /**
-     * Decorates the default {@link Function} with {@link Serializable}, which is required by some distributed frameworks.
+     * Decorates the default {@link BinaryOperator} with {@link Serializable}, which
+     * is required by some distributed frameworks.
+     * 
+     * @deprecated Use
+     *             {@link org.apache.wayang.core.function.SerializableFunctionInterface.SerializableBinaryOperator}
+     *             instead.
      */
     @FunctionalInterface
+    @Deprecated(forRemoval = true)
     public interface SerializableBinaryOperator<Type> extends BinaryOperator<Type>, Serializable {
     }
 
     /**
      * Extends a {@link SerializableBinaryOperator} to an {@link ExtendedFunction}.
+     * 
+     * @deprecated Use
+     *             {@link org.apache.wayang.core.function.SerializableFunctionInterface.ExtendedSerializableBinaryOperator}
+     *             instead.
      */
-    public interface ExtendedSerializableBinaryOperator<Type> extends SerializableBinaryOperator<Type>, ExtendedFunction {
-    }
-
-    @FunctionalInterface
-    public interface SerializablePredicate<T> extends Predicate<T>, Serializable {
-
-    }
-
-    public interface ExtendedSerializablePredicate<T> extends SerializablePredicate<T>, ExtendedFunction {
-
+    @Deprecated(forRemoval = true)
+    public interface ExtendedSerializableBinaryOperator<Type>
+            extends SerializableBinaryOperator<Type>, ExtendedFunction {
     }
 
     /**
-     * Decorates the default {@link Consumer} with {@link Serializable}, which is required by some distributed frameworks.
+     * @deprecated Use
+     *             {@link org.apache.wayang.core.function.SerializableFunctionInterface.SerializablePredicate}
+     *             instead.
      */
     @FunctionalInterface
-    public interface SerializableConsumer<T> extends Consumer<T>, Serializable {
-
+    @Deprecated(forRemoval = true)
+    public interface SerializablePredicate<T> extends Predicate<T>, Serializable {
     }
+
+    /**
+     * @deprecated Use
+     *             {@link org.apache.wayang.core.function.SerializableFunctionInterface.ExtendedSerializablePredicate}
+     *             instead.
+     */
+    @Deprecated(forRemoval = true)
+    public interface ExtendedSerializablePredicate<T> extends SerializablePredicate<T>, ExtendedFunction {
+    }
+
+    /**
+     * Decorates the default {@link Consumer} with {@link Serializable}, which is
+     * required by some distributed frameworks.
+     * 
+     * @deprecated Use
+     *             {@link org.apache.wayang.core.function.SerializableFunctionInterface.SerializableConsumer}
+     *             instead.
+     */
+    @FunctionalInterface
+    @Deprecated(forRemoval = true)
+    public interface SerializableConsumer<T> extends Consumer<T>, Serializable {
+    }
+
     /**
      * Extends a {@link SerializableConsumer} to an {@link ExtendedFunction}.
+     * 
+     * @deprecated Use
+     *             {@link org.apache.wayang.core.function.SerializableFunctionInterface.ExtendedSerializableConsumer}
+     *             instead.
      */
-    public interface ExtendedSerializableConsumer<T> extends SerializableConsumer<T>, ExtendedFunction{
-
+    @Deprecated(forRemoval = true)
+    public interface ExtendedSerializableConsumer<T> extends SerializableConsumer<T>, ExtendedFunction {
     }
 
+    /**
+     * @deprecated Use
+     *             {@link org.apache.wayang.core.function.SerializableFunctionInterface.SerializableIntUnaryOperator}
+     *             instead.
+     */
     @FunctionalInterface
+    @Deprecated(forRemoval = true)
     public interface SerializableIntUnaryOperator extends IntUnaryOperator, Serializable {
-
     }
 
+    /**
+     * @deprecated Use
+     *             {@link org.apache.wayang.core.function.SerializableFunctionInterface.SerializableLongUnaryOperator}
+     *             instead.
+     */
     @FunctionalInterface
+    @Deprecated(forRemoval = true)
     public interface SerializableLongUnaryOperator extends LongUnaryOperator, Serializable {
-
     }
 
+    /**
+     * @deprecated Use
+     *             {@link org.apache.wayang.core.function.SerializableFunctionInterface.SerializableToLongBiFunction}
+     *             instead.
+     */
     @FunctionalInterface
+    @Deprecated(forRemoval = true)
     public interface SerializableToLongBiFunction<T, U> extends ToLongBiFunction<T, U>, Serializable {
-
     }
 
+    /**
+     * @deprecated Use
+     *             {@link org.apache.wayang.core.function.SerializableFunctionInterface.SerializableToDoubleBiFunction}
+     *             instead.
+     */
     @FunctionalInterface
+    @Deprecated(forRemoval = true)
     public interface SerializableToDoubleBiFunction<T, U> extends ToDoubleBiFunction<T, U>, Serializable {
-
     }
 
+    /**
+     * @deprecated Use
+     *             {@link org.apache.wayang.core.function.SerializableFunctionInterface.SerializableToLongFunction}
+     *             instead.
+     */
     @FunctionalInterface
+    @Deprecated(forRemoval = true)
     public interface SerializableToLongFunction<T> extends ToLongFunction<T>, Serializable {
-
     }
 }
