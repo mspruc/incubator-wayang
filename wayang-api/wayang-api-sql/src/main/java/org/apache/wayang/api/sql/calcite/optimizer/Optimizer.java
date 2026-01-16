@@ -200,7 +200,6 @@ public class Optimizer {
         return root.rel;
     }
 
-    // TODO: create a basic ruleset
     public RelNode optimize(final RelNode node, final RelTraitSet requiredTraitSet, final RuleSet rules) {
         final Program program = Programs.of(RuleSets.ofList(rules));
 
