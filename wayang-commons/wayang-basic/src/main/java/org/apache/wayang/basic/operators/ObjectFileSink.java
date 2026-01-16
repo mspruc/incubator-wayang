@@ -22,9 +22,6 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.wayang.core.function.TransformationDescriptor;
-import org.apache.wayang.core.optimizer.costs.DefaultLoadEstimator;
-import org.apache.wayang.core.optimizer.costs.NestableLoadProfileEstimator;
 import org.apache.wayang.core.plan.wayangplan.UnarySink;
 import org.apache.wayang.core.types.DataSetType;
 

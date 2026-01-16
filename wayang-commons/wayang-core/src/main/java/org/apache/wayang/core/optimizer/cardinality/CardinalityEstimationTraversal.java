@@ -18,7 +18,6 @@
 
 package org.apache.wayang.core.optimizer.cardinality;
 
-import org.apache.commons.lang3.Validate;
 import org.apache.wayang.core.api.Configuration;
 import org.apache.wayang.core.optimizer.OptimizationContext;
 import org.apache.wayang.core.plan.wayangplan.InputSlot;
@@ -106,9 +105,9 @@ public class CardinalityEstimationTraversal {
                                                                      Collection<InputSlot<?>> borderInputSlots,
                                                                      Collection<Operator> sourceOperators,
                                                                      Configuration configuration) {
-        Validate.notNull(inputSlots);
-        Validate.notNull(sourceOperators);
-        Validate.notNull(configuration);
+        Objects.requireNonNull(inputSlots);
+        Objects.requireNonNull(sourceOperators);
+        Objects.requireNonNull(configuration);
 
         // Starting from the an output, find all required inputs.
         return new Builder(inputSlots, borderInputSlots, sourceOperators, configuration).build();

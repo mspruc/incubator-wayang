@@ -18,7 +18,6 @@
 
 package org.apache.wayang.profiler.hardware;
 
-import org.apache.commons.lang3.Validate;
 import org.apache.wayang.core.util.Formats;
 import org.apache.wayang.core.util.fs.FileSystem;
 import org.apache.wayang.core.util.fs.FileSystems;
@@ -29,6 +28,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 
 /**
@@ -43,7 +43,7 @@ public class DiskProfiler {
     public DiskProfiler(String testFileURl) {
         this.testFileURl = testFileURl;
         this.fs = FileSystems.getFileSystem(this.testFileURl).orElse(null);
-        Validate.notNull(this.fs);
+        Objects.requireNonNull(this.fs);
     }
 
     /**

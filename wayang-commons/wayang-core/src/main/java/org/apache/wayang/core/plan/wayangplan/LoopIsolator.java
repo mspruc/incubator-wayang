@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Goes over a {@link WayangPlan} and isolates its loops.
@@ -114,7 +115,7 @@ public class LoopIsolator extends OneTimeExecutable {
 
         // Sanity-check inputs of the loopHead.
         for (InputSlot<?> inputSlot : loopHead.getLoopBodyInputs()) {
-            Validate.notNull(inputSlot.getOccupant(), "Loop body input %s is unconnected.", inputSlot);
+            Objects.requireNonNull(inputSlot.getOccupant(), "Loop body input " + inputSlot + " is unconnected.");
             Validate.isTrue(loopBodyOperators.contains(inputSlot.getOccupant().getOwner()),
                     "Illegal input for loop head input %s.", inputSlot);
         }
