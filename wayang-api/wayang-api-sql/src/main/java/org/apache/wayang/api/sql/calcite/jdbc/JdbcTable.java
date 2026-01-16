@@ -20,8 +20,6 @@ import com.google.common.base.Suppliers;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.java.AbstractQueryableTable;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
-//import org.apache.calcite.adapter.jdbc.JdbcSchema;
-import org.apache.calcite.adapter.jdbc.JdbcTableScan;
 import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.linq4j.Enumerable;

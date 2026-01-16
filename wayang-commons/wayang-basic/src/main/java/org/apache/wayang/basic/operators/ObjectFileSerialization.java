@@ -21,7 +21,6 @@ package org.apache.wayang.basic.operators;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.CollectionType;
-import org.apache.commons.lang3.Validate;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -33,6 +32,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Utility methods that convert between Java objects and the on-disk representation used by {@link ObjectFileSink}.
@@ -59,7 +59,7 @@ public final class ObjectFileSerialization {
      * @throws IOException if serialization fails
      */
     public static byte[] serializeChunk(Object[] chunk, int validLength, ObjectFileSerializationMode mode) throws IOException {
-        Validate.notNull(mode, "Serialization mode must be provided.");
+        Objects.requireNonNull(mode, "Serialization mode must be provided.");
         switch (mode) {
             case JSON:
                 return serializeJson(chunk, validLength);
@@ -83,7 +83,7 @@ public final class ObjectFileSerialization {
     public static List<Object> deserializeChunk(byte[] payload,
                                                 ObjectFileSerializationMode mode,
                                                 Class<?> elementType) throws IOException, ClassNotFoundException {
-        Validate.notNull(mode, "Serialization mode must be provided.");
+        Objects.requireNonNull(mode, "Serialization mode must be provided.");
         switch (mode) {
             case JSON:
                 return deserializeJson(payload, elementType);
@@ -127,7 +127,7 @@ public final class ObjectFileSerialization {
     }
 
     private static List<Object> deserializeJson(byte[] payload, Class<?> elementType) throws IOException {
-        Validate.notNull(elementType, "Element type must be provided for JSON deserialization.");
+        Objects.requireNonNull(elementType, "Element type must be provided for JSON deserialization.");
         CollectionType type = OBJECT_MAPPER.getTypeFactory()
                 .constructCollectionType(List.class, elementType);
         List<?> list = OBJECT_MAPPER.readValue(payload, type);

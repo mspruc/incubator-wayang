@@ -40,6 +40,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -91,7 +92,7 @@ public class ReflectionUtils {
      * no such file could be determined.
      */
     public static String getDeclaringJar(Object object) {
-        Validate.notNull(object);
+        Objects.requireNonNull(object);
 
         return getDeclaringJar(object.getClass());
     }

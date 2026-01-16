@@ -18,13 +18,11 @@
 
 package org.apache.wayang.core.optimizer.enumeration;
 
-import org.apache.commons.lang3.Validate;
 import org.apache.wayang.core.api.Configuration;
 import org.apache.wayang.core.optimizer.OptimizationContext;
 import org.apache.wayang.core.optimizer.ProbabilisticDoubleInterval;
 import org.apache.wayang.core.optimizer.costs.TimeEstimate;
 import org.apache.wayang.core.optimizer.costs.TimeToCostConverter;
-import org.apache.wayang.core.optimizer.costs.DefaultEstimatableCost;
 import org.apache.wayang.core.optimizer.costs.EstimatableCost;
 import org.apache.wayang.core.plan.executionplan.Channel;
 import org.apache.wayang.core.plan.executionplan.ExecutionTask;
@@ -516,7 +514,7 @@ public class PlanImplementation {
      * to a further {@link ExecutionOperator} in the further plan enumeration process
      */
     public Collection<ExecutionOperator> getInterfaceOperators() {
-        Validate.notNull(this.getPlanEnumeration());
+        Objects.requireNonNull(this.getPlanEnumeration());
         final Set<OutputSlot> outputSlots = this.getPlanEnumeration().servingOutputSlots.stream()
                 .map(Tuple::getField0)
                 .distinct()
