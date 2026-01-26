@@ -23,14 +23,18 @@ import java.util.Iterator;
 
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-
+import org.apache.wayang.basic.data.Tuple2;
+import org.apache.wayang.basic.function.ProjectionDescriptor;
 import org.apache.wayang.core.function.FunctionDescriptor.SerializableFunction;
 import org.apache.wayang.core.platform.ChannelInstance;
 import org.apache.wayang.core.types.DataSetType;
+import org.apache.wayang.core.types.DataUnitType;
 import org.apache.wayang.flink.channels.DataStreamChannel;
 import org.apache.wayang.java.channels.CollectionChannel;
-
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class FlinkDataStreamTests extends FlinkOperatorTestBase {
@@ -112,5 +116,56 @@ public class FlinkDataStreamTests extends FlinkOperatorTestBase {
         this.evaluate(collectionSink, sinkInputs, sinkOutputs);
 
         assertTrue(sinkOutput.provideCollection().size() > 0);
+    }
+
+    @RepeatedTest(5)
+    public void joinTest() throws Exception {
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        // Set up channels
+        final DataStreamChannel.Instance input1 = this.createDataStreamChannelInstance();
+        input1.accept(
+                env.fromData(new Tuple2<>(1, "b"), new Tuple2<>(1, "c"), new Tuple2<>(2, "d"), new Tuple2<>(3, "e")));
+        final DataStreamChannel.Instance input2 = this.createDataStreamChannelInstance();
+        input2.accept(
+                env.fromData(new Tuple2<>("x", 1), new Tuple2<>("y", 1), new Tuple2<>("z", 2), new Tuple2<>("w", 4)));
+
+        final DataStreamChannel.Instance output = this.createDataStreamChannelInstance();
+
+        // Set up the ChannelInstances.
+        final ChannelInstance[] inputs = new ChannelInstance[] { input1, input2 };
+        final ChannelInstance[] outputs = new ChannelInstance[] { output };
+
+        // Set up JoinOperator
+        final ProjectionDescriptor<Tuple2<Integer, String>, Integer> left = new ProjectionDescriptor<>(
+                DataUnitType.createBasicUnchecked(Tuple2.class),
+                DataUnitType.createBasic(Integer.class),
+                "field0");
+        final ProjectionDescriptor<Tuple2<String, Integer>, Integer> right = new ProjectionDescriptor<>(
+                DataUnitType.createBasicUnchecked(Tuple2.class),
+                DataUnitType.createBasic(Integer.class),
+                "field1");
+        final FlinkDataStreamJoinOperator<Tuple2<Integer, String>, Tuple2<String, Integer>, Integer> join = new FlinkDataStreamJoinOperator<>(
+                left, right);
+
+        // Execute.
+        this.evaluate(join, inputs, outputs);
+
+        final DataStream<Tuple2<?, ?>> stream = output.<Tuple2<?, ?>>provideDataStream();
+        final Iterator<Tuple2<?, ?>> ints = stream.executeAndCollect();
+
+        final ArrayList<Tuple2<?, ?>> collection = new ArrayList<>();
+        ints.forEachRemaining(collection::add);
+
+        assertEquals(5, collection.size());
+        assertTrue(collection.stream()
+                .anyMatch(res -> res.equals(new Tuple2<>(new Tuple2<>(1, "b"), new Tuple2<>("x", 1)))));
+        assertTrue(collection.stream()
+                .anyMatch(res -> res.equals(new Tuple2<>(new Tuple2<>(1, "b"), new Tuple2<>("y", 1)))));
+        assertTrue(collection.stream()
+                .anyMatch(res -> res.equals(new Tuple2<>(new Tuple2<>(1, "c"), new Tuple2<>("x", 1)))));
+        assertTrue(collection.stream()
+                .anyMatch(res -> res.equals(new Tuple2<>(new Tuple2<>(1, "c"), new Tuple2<>("y", 1)))));
+        assertTrue(collection.stream()
+                .anyMatch(res -> res.equals(new Tuple2<>(new Tuple2<>(2, "d"), new Tuple2<>("z", 2)))));
     }
 }
