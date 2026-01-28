@@ -66,7 +66,10 @@ public class Mappings {
     );
 
     public static final Collection<Mapping> BOUNDED_STREAM_MAPPINGS = Arrays.asList(
-        new BoundedTextFileSourceMapping()
+        new BoundedTextFileSourceMapping(),
+        new StreamedMapMapping(),
+        new StreamedJoinMapping(),
+        new StreamedLocalCallbackSinkMapping()
     );
 }
 

@@ -18,13 +18,19 @@
 
 package org.apache.wayang.flink.operators;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+
 import org.apache.wayang.basic.data.Tuple2;
 import org.apache.wayang.basic.function.ProjectionDescriptor;
+import org.apache.wayang.basic.operators.LocalCallbackSink;
 import org.apache.wayang.core.function.FunctionDescriptor.SerializableFunction;
 import org.apache.wayang.core.platform.ChannelInstance;
 import org.apache.wayang.core.types.DataSetType;
@@ -33,9 +39,6 @@ import org.apache.wayang.flink.channels.DataStreamChannel;
 import org.apache.wayang.java.channels.CollectionChannel;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class FlinkDataStreamTests extends FlinkOperatorTestBase {
     @Test
@@ -57,8 +60,31 @@ public class FlinkDataStreamTests extends FlinkOperatorTestBase {
 
         final ArrayList<String> collection = new ArrayList<>();
         str.forEachRemaining(collection::add);
-        collection.forEach(System.out::println);
+
         assertTrue(collection.size() > 0);
+    }
+
+    @Test
+    public void localcallbackSinkTest() throws Exception {
+        final String path = FlinkDataStreamTests.class.getResource("dataStreamTest.txt").getPath();
+
+        final FlinkBoundedTextFileSource collectionSource = new FlinkBoundedTextFileSource(path);
+        final DataStreamChannel.Instance output = this.createDataStreamChannelInstance();
+
+        final List<String> collection = new ArrayList<>();
+        final FlinkDataStreamLocalCallbackSink<String> sink = new FlinkDataStreamLocalCallbackSink<>(LocalCallbackSink.createCollectingSink(collection, DataSetType.createDefault(String.class)));
+        
+        // Set up the ChannelInstances.
+        final ChannelInstance[] sourceInputs = new ChannelInstance[] {};
+        final ChannelInstance[] sourceOutputs = new ChannelInstance[] { output };
+        final ChannelInstance[] sinkInputs = new ChannelInstance[] { output };
+        final ChannelInstance[] sinkOutputs = new ChannelInstance[] { };
+
+        // Execute.
+        this.evaluate(collectionSource, sourceInputs, sourceOutputs);
+        this.evaluate(sink, sinkInputs, sinkOutputs);
+
+        assertTrue(collection.isEmpty() == false);
     }
 
     @Test

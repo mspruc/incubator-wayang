@@ -82,6 +82,7 @@ public class FlinkExecutor extends PushExecutorTemplate {
         super(job);
         this.platform = flinkPlatform;
         this.flinkContextReference = this.platform.getFlinkContext(job);
+        this.sEnv = flinkPlatform.streamExecutionEnvironment;
         this.fee = this.flinkContextReference.get();
         this.numDefaultPartitions = (int) this.getConfiguration().getLongProperty("wayang.flink.parallelism");
         this.fee.setParallelism(this.numDefaultPartitions);

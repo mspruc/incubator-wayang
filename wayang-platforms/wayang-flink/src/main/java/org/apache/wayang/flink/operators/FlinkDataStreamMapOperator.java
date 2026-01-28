@@ -34,12 +34,16 @@ import org.apache.wayang.core.platform.ChannelInstance;
 import org.apache.wayang.core.platform.lineage.ExecutionLineageNode;
 import org.apache.wayang.core.util.Tuple;
 import org.apache.wayang.flink.channels.DataStreamChannel;
+import org.apache.wayang.flink.compiler.FunctionCompiler;
 import org.apache.wayang.flink.execution.FlinkExecutor;
 
 public class FlinkDataStreamMapOperator<I, O> extends MapOperator<I, O> implements FlinkExecutionOperator {
-
     public FlinkDataStreamMapOperator(final SerializableFunction<I, O> function, final Class<I> inputTypeClass, final Class<O> outputTypeClass) {
         super(function, inputTypeClass, outputTypeClass);
+    }
+
+    public FlinkDataStreamMapOperator(final MapOperator<I, O> that) {
+        super(that);
     }
 
     @Override
@@ -61,7 +65,7 @@ public class FlinkDataStreamMapOperator<I, O> extends MapOperator<I, O> implemen
         final DataStreamChannel.Instance output = (DataStreamChannel.Instance) outputs[0];
 
         final DataStream<I> stream = input.provideDataStream();
-        final MapFunction<I, O> mapper = flinkExecutor.getCompiler().compile(this.functionDescriptor);
+        final MapFunction<I, O> mapper = FunctionCompiler.compile(this.functionDescriptor);
         final DataStream<O> outputStream = stream.map(mapper).returns(this.getOutputType().getDataUnitType().getTypeClass());
 
         output.accept(outputStream);

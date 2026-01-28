@@ -50,10 +50,21 @@ public class FlinkDataStreamJoinOperator<I0, I1, K> extends JoinOperator<I0, I1,
             return new Tuple2<>(first, second);
         }
     }
+
     final WatermarkStrategy<I0> leftWatermarkStrategy;
     final WatermarkStrategy<I1> rightWatermarkStrategy;
-
     final Duration duration;
+
+    public FlinkDataStreamJoinOperator(final JoinOperator<I0, I1, K> that) {
+        super(that);
+        this.leftWatermarkStrategy = WatermarkStrategy
+                .<I0>forMonotonousTimestamps()
+                .withTimestampAssigner((e, ts) -> 0L);
+        this.rightWatermarkStrategy = WatermarkStrategy
+                .<I1>forMonotonousTimestamps()
+                .withTimestampAssigner((e, ts) -> 0L);
+        this.duration = Duration.ofDays(365);
+    }
 
     public FlinkDataStreamJoinOperator(final ProjectionDescriptor<I0, K> descriptor0,
             final ProjectionDescriptor<I1, K> descriptor1) {
