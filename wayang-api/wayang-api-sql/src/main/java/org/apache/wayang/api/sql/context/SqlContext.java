@@ -215,7 +215,7 @@ public class SqlContext extends WayangContext {
         PrintUtils.print("After translating logical intermediate plan", wayangRel);
 
         final Collection<Record> collector = new ArrayList<>();
-        final WayangPlan wayangPlan = Optimizer.convert(wayangRel, collector);
+        final WayangPlan wayangPlan = Optimizer.convertWithConfig(wayangRel, this.getConfiguration(), collector);
 
         this.execute(getJobName(), wayangPlan);
 
