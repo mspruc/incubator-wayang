@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -94,6 +95,20 @@ public class ExecutionStage {
         this.platformExecution.addStage(this);
     }
 
+    /**
+     * Retrieves the preceding {@link ExecutionTask} of the given {@code task}, in
+     * this stage.
+     * 
+     * @param task ExecutionTask whose preceeding task you want to find.
+     */
+    public List<ExecutionTask> getPreceedingTask(final ExecutionTask task) {
+        assert task.getStage() == this;
+        return Arrays.stream(task.getInputChannels())
+                .map(Channel::getProducer)
+                .filter(consumer -> consumer.getStage() == this)
+                .toList();
+    }
+   
     /**
      * Mutually register a predecessor/successor relationship among this and the given instance.
      *

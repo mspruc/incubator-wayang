@@ -24,7 +24,6 @@ import org.apache.wayang.core.optimizer.costs.LoadProfileEstimator;
 import org.apache.wayang.core.optimizer.costs.NestableLoadProfileEstimator;
 import org.apache.wayang.core.types.BasicDataUnitType;
 
-import java.io.Serializable;
 import java.util.function.Function;
 
 /**
@@ -33,7 +32,7 @@ import java.util.function.Function;
  * @param <Input>  input type of the transformation function
  * @param <Output> output type of the transformation function
  */
-public class TransformationDescriptor<Input, Output> extends FunctionDescriptor implements Serializable {
+public class TransformationDescriptor<Input, Output> extends FunctionDescriptor {
 
     public TransformationDescriptor() {}
 

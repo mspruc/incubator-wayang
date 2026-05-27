@@ -27,17 +27,26 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
+import org.apache.calcite.DataContext;
+import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
+import org.apache.calcite.linq4j.Enumerable;
+import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
@@ -47,6 +56,7 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.logical.LogicalTableScan;
 import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
@@ -57,6 +67,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.schema.ScannableTable;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.SqlDialect;
@@ -65,7 +76,9 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.tools.RuleSets;
 import org.apache.wayang.api.sql.calcite.convention.WayangConvention;
@@ -78,6 +91,7 @@ import org.apache.wayang.api.sql.calcite.utils.ModelParser;
 import org.apache.wayang.api.sql.context.SqlContext;
 import org.apache.wayang.basic.data.Record;
 import org.apache.wayang.basic.data.Tuple2;
+import org.apache.wayang.basic.operators.TableSource;
 import org.apache.wayang.core.api.Configuration;
 import org.apache.wayang.core.function.FunctionDescriptor.SerializablePredicate;
 import org.apache.wayang.core.mapping.PlanTransformation;
@@ -87,6 +101,7 @@ import org.apache.wayang.core.plan.wayangplan.WayangPlan;
 import org.apache.wayang.core.util.Tuple;
 import org.apache.wayang.java.Java;
 import org.apache.wayang.jdbc.execution.JdbcExecutor;
+import org.apache.wayang.jdbc.operators.JdbcJoinOperator;
 import org.apache.wayang.jdbc.operators.JdbcProjectionOperator;
 import org.apache.wayang.jdbc.operators.JdbcTableSource;
 import org.apache.wayang.postgres.mapping.ProjectionMapping;
@@ -100,24 +115,98 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 class SqlToWayangRelTest {
 
     /**
-     * Method for building {@link WayangPlan}s useful for testing, benchmarking and
-     * other usages where you want to handle the intermediate {@link WayangPlan}
-     *
-     * @param sql     sql query string with the {@code ;} cut off
-     * @param udfJars
-     * @return a {@link WayangPlan} of a given sql string
-     * @throws SqlParseException
-     * @throws SQLException
+     * In memory test db for calcite sql statements
      */
-    private Tuple2<Collection<Record>, WayangPlan> buildCollectorAndWayangPlan(final SqlContext context,
-            final String sql, final String... udfJars) throws SqlParseException, SQLException {
+    private static final class InMemoryScannableTable extends AbstractTable implements ScannableTable {
+        private final RelDataType rowType;
+        private final List<Object[]> rows;
+
+        InMemoryScannableTable(final RelDataType rowType, final List<Object[]> rows) {
+            this.rowType = rowType;
+            this.rows = rows;
+        }
+
+        @Override
+        public RelDataType getRowType(final RelDataTypeFactory typeFactory) {
+            return rowType;
+        }
+
+        @Override
+        public Enumerable<Object[]> scan(final DataContext root) {
+            return Linq4j.asEnumerable(rows);
+        }
+    }
+
+    @Test
+    public void serializeFilter() throws Exception {
+        // create filterPredicateImpl for serialisation
+        final RelDataTypeFactory typeFactory = new JavaTypeFactoryImpl();
+        final RexBuilder rb = new RexBuilder(typeFactory);
+        final RexNode leftOperand = rb.makeInputRef(typeFactory.createSqlType(SqlTypeName.VARCHAR), 0);
+        final RexNode rightOperand = rb.makeLiteral("test");
+        final RexNode cond = rb.makeCall(SqlStdOperatorTable.EQUALS, leftOperand, rightOperand);
+        final SerializablePredicate<?> fpImpl = new FilterPredicateImpl(cond);
+
+        final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        final ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
+        objectOutputStream.writeObject(fpImpl);
+        objectOutputStream.close();
+
+        final ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(byteArrayOutputStream.toByteArray());
+        final ObjectInputStream objectInputStream = new ObjectInputStream(byteArrayInputStream);
+        final Object deserializedObject = objectInputStream.readObject();
+        objectInputStream.close();
+
+        assertTrue(((FilterPredicateImpl) deserializedObject).test(new Record("test")));
+    }
+
+    @Test
+    public void sqlApiJoinTest() throws Exception {
+        final JavaTypeFactoryImpl typeFactory = new JavaTypeFactoryImpl();
+
+        final RelDataType employeeRowType = new Builder(typeFactory)
+                .add("ID", typeFactory.createJavaType(Integer.class))
+                .add("NAME", typeFactory.createJavaType(String.class)).build();
+
+        final RelDataType wageRowType = new Builder(typeFactory).add("ID", typeFactory.createJavaType(Integer.class))
+                .add("WAGE", typeFactory.createJavaType(Integer.class)).build();
+
+        Class.forName("org.apache.calcite.jdbc.Driver");
+        final Properties info = new Properties();
+        info.setProperty("lex", "JAVA");
+        final Connection connection = DriverManager.getConnection("jdbc:calcite:", info);
+        final CalciteConnection calciteConnection = connection.unwrap(CalciteConnection.class);
+        final SchemaPlus rootSchema = calciteConnection.getRootSchema();
+
+        final List<Object[]> employeeData = List.of(new Object[] { 1, "Alice" }, new Object[] { 2, "Bob" });
+
+        final List<Object[]> wageData = List.of(new Object[] { 1, 3600 }, new Object[] { 2, 4000 });
+
+        rootSchema.add("Employees", new InMemoryScannableTable(employeeRowType, employeeData));
+        rootSchema.add("Wages", new InMemoryScannableTable(wageRowType, wageData));
+
+        final VolcanoPlanner planner = new VolcanoPlanner(RelOptCostImpl.FACTORY, Contexts.empty());
+        planner.addRelTraitDef(ConventionTraitDef.INSTANCE);
+
+        final FrameworkConfig config = Frameworks.newConfigBuilder().defaultSchema(rootSchema)
+                .costFactory(RelOptCostImpl.FACTORY).build();
+
+        final RelBuilder relBuilder = RelBuilder.create(config);
+
+        final RelNode relTree = relBuilder.scan("Employees").scan("Wages").join(JoinRelType.INNER,
+                relBuilder.call(SqlStdOperatorTable.EQUALS, relBuilder.field(2, 0, "ID"), relBuilder.field(2, 1, "ID")))
+                .build();
+
+        final SqlDialect dialect = SqlDialect.DatabaseProduct.CALCITE.getDialect();
+        final RelToSqlConverter converter = new RelToSqlConverter(dialect);
+        final SqlNode sqlNode = converter.visitRoot(relTree).asStatement();
+
         final Properties configProperties = Optimizer.ConfigProperties.getDefaults();
         final RelDataTypeFactory relDataTypeFactory = new JavaTypeFactoryImpl();
 
-        final Optimizer optimizer = Optimizer.create(SchemaUtils.getSchema(context.getConfiguration()),
-                configProperties, relDataTypeFactory);
+        final Optimizer optimizer = Optimizer.create(CalciteSchema.from(rootSchema), configProperties,
+                relDataTypeFactory);
 
-        final SqlNode sqlNode = optimizer.parseSql(sql);
         final SqlNode validatedSqlNode = optimizer.validate(sqlNode);
         final RelNode relNode = optimizer.convert(validatedSqlNode);
 
@@ -129,11 +218,46 @@ class SqlToWayangRelTest {
         final RelNode wayangRel = optimizer.optimize(relNode, relNode.getTraitSet().plus(WayangConvention.INSTANCE),
                 rules);
 
-        final Collection<Record> collector = new ArrayList<>();
+        final WayangPlan plan = Optimizer.convert(wayangRel, new ArrayList<Record>());
 
-        final WayangPlan wayangPlan = Optimizer.convertWithConfig(wayangRel, context.getConfiguration(), collector);
+        final ProjectionMapping projectionMapping = new ProjectionMapping();
+        final PlanTransformation projectionTransformation = projectionMapping.getTransformations().iterator().next()
+                .thatReplaces();
 
-        return new Tuple2<>(collector, wayangPlan);
+        final org.apache.wayang.postgres.mapping.JoinMapping joinMapping = new org.apache.wayang.postgres.mapping.JoinMapping();
+        final PlanTransformation joinTransformation = joinMapping.getTransformations().iterator().next().thatReplaces();
+
+        plan.applyTransformations(List.of(projectionTransformation, joinTransformation));
+
+        final Collection<Operator> operators = PlanTraversal.upstream().traverse(plan.getSinks()).getTraversedNodes();
+
+        System.out.println("operators: "
+                + operators.stream().map(op -> op instanceof TableSource ? ((TableSource) op).getTableName() : op)
+                        .collect(Collectors.toList()));
+
+        final List<JdbcTableSource> tables = operators.stream().filter(op -> op instanceof JdbcTableSource)
+                .map(JdbcTableSource.class::cast).toList();
+        final JdbcProjectionOperator projection = operators.stream().filter(op -> op instanceof JdbcProjectionOperator)
+                .map(JdbcProjectionOperator.class::cast).findFirst().orElseThrow();
+        final JdbcJoinOperator<?> join = operators.stream().filter(op -> op instanceof JdbcJoinOperator)
+                .map(JdbcJoinOperator.class::cast).findFirst().orElseThrow();
+
+        final HashMap<Operator, List<Operator>> edges = new HashMap<>();
+        edges.put(projection, List.of(join));
+        tables.stream().forEach(table -> edges.put(table, List.of()));
+        edges.put(join, tables.stream().collect(Collectors.toList()));
+
+        final String query = JdbcExecutor.createSqlString(mock(), tables.get(0), List.of(), projection, List.of(join))
+                .toString();
+
+        assertTrue(query.contains("INNER JOIN"), "expected query to contain 'inner join', got: " + query);
+
+        try (Statement st = calciteConnection.createStatement(); ResultSet rs = st.executeQuery(query)) {
+            while (rs.next()) {
+                final int id = rs.getInt("ID");
+                final String name = rs.getString("NAME");
+            }
+        }
     }
 
     @Test
@@ -153,7 +277,6 @@ class SqlToWayangRelTest {
         assertTrue(!result.isEmpty());
         assertTrue(result.stream().allMatch(field -> field.getField(1).equals(1)));
     }
-
 
     @Test
     void javaFilterWithCast() throws Exception {
@@ -232,12 +355,15 @@ class SqlToWayangRelTest {
         final Collection<Operator> operators = PlanTraversal.upstream().traverse(plan.getSinks()).getTraversedNodes();
 
         final JdbcTableSource table = operators.stream().filter(op -> op instanceof JdbcTableSource)
-                .map(JdbcTableSource.class::cast).findFirst().orElseThrow(() -> new RuntimeException("Table not found"));
+                .map(JdbcTableSource.class::cast).findFirst()
+                .orElseThrow(() -> new RuntimeException("Table not found"));
         final JdbcProjectionOperator projection = operators.stream().filter(op -> op instanceof JdbcProjectionOperator)
-                .map(JdbcProjectionOperator.class::cast).findFirst().orElseThrow(() -> new RuntimeException("Projection not found"));
+                .map(JdbcProjectionOperator.class::cast).findFirst()
+                .orElseThrow(() -> new RuntimeException("Projection not found"));
 
         final JdbcExecutor jdbcExecutor = mock();
-        final StringBuilder query = JdbcExecutor.createSqlString(jdbcExecutor, table, Arrays.asList(), projection, Arrays.asList());
+        final StringBuilder query = JdbcExecutor.createSqlString(jdbcExecutor, table, Arrays.asList(), projection,
+                Arrays.asList());
 
         assertEquals("SELECT ID, NAME FROM T1;", query.toString());
     }
@@ -344,7 +470,8 @@ class SqlToWayangRelTest {
         sqlContext.execute(wayangPlan);
 
         assertEquals(1, result.size());
-        assertEquals(0.875f, result.stream().findFirst().orElseThrow(() -> new RuntimeException("No record found")).getDouble(0));
+        assertEquals(0.875f,
+                result.stream().findFirst().orElseThrow(() -> new RuntimeException("No record found")).getDouble(0));
     }
 
     @Test
@@ -677,29 +804,6 @@ class SqlToWayangRelTest {
     }
 
     @Test
-    public void serializeFilter() throws Exception {
-        // create filterPredicateImpl for serialisation
-        final RelDataTypeFactory typeFactory = new JavaTypeFactoryImpl();
-        final RexBuilder rb = new RexBuilder(typeFactory);
-        final RexNode leftOperand = rb.makeInputRef(typeFactory.createSqlType(SqlTypeName.VARCHAR), 0);
-        final RexNode rightOperand = rb.makeLiteral("test");
-        final RexNode cond = rb.makeCall(SqlStdOperatorTable.EQUALS, leftOperand, rightOperand);
-        final SerializablePredicate<?> fpImpl = new FilterPredicateImpl(cond);
-
-        final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        final ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
-        objectOutputStream.writeObject(fpImpl);
-        objectOutputStream.close();
-
-        final ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(byteArrayOutputStream.toByteArray());
-        final ObjectInputStream objectInputStream = new ObjectInputStream(byteArrayInputStream);
-        final Object deserializedObject = objectInputStream.readObject();
-        objectInputStream.close();
-
-        assertTrue(((FilterPredicateImpl) deserializedObject).test(new Record("test")));
-    }
-
-    @Test
     void exampleFilterTableRefToTableRef() throws Exception {
         final SqlContext sqlContext = createSqlContext("/data/exampleRefToRef.csv");
 
@@ -725,7 +829,8 @@ class SqlToWayangRelTest {
         final WayangPlan wayangPlan = t.field1;
         sqlContext.execute(wayangPlan);
 
-        assertEquals("AA", result.stream().findAny().orElseThrow(() -> new RuntimeException("No record found")).getString(0));
+        assertEquals("AA",
+                result.stream().findAny().orElseThrow(() -> new RuntimeException("No record found")).getString(0));
     }
 
     @Test
@@ -759,17 +864,14 @@ class SqlToWayangRelTest {
                 "Could not get table resource from path: " + tableResourceName);
 
         configuration.setProperty("wayang.fs.table.url", dataPath);
-
         configuration.setProperty("wayang.ml.executions.file", "mle" + ".txt");
-
         configuration.setProperty("wayang.ml.optimizations.file", "mlo" + ".txt");
-
         configuration.setProperty("wayang.ml.experience.enabled", "false");
 
         final SqlContext sqlContext = new SqlContext(configuration);
 
         final Tuple2<Collection<Record>, WayangPlan> t = this.buildCollectorAndWayangPlan(sqlContext,
-                "SELECT count(*) FROM fs.exampleDelimiter" //
+                "SELECT count(*) FROM fs.exampleDelimiter" 
         );
 
         final Collection<Record> result = t.field0;
@@ -793,14 +895,12 @@ class SqlToWayangRelTest {
         final RelDataType ordersRowType = new Builder(typeFactory)
                 .add("order_id", typeFactory.createJavaType(Integer.class))
                 .add("customer_id", typeFactory.createJavaType(Integer.class))
-                .add("product_id", typeFactory.createJavaType(Integer.class))
-                .build();
+                .add("product_id", typeFactory.createJavaType(Integer.class)).build();
 
         final RelDataType shipmentsRowType = new Builder(typeFactory)
                 .add("order_id", typeFactory.createJavaType(Integer.class))
                 .add("customer_id", typeFactory.createJavaType(Integer.class))
-                .add("ship_date", typeFactory.createJavaType(String.class))
-                .build();
+                .add("ship_date", typeFactory.createJavaType(String.class)).build();
 
         rootSchema.add("orders", new AbstractTable() {
             @Override
@@ -845,30 +945,27 @@ class SqlToWayangRelTest {
 
         final Collection<Operator> operators = PlanTraversal.upstream().traverse(plan.getSinks()).getTraversedNodes();
 
-        final JdbcTableSource ordersTable = operators.stream()
-                .filter(op -> op instanceof JdbcTableSource)
-                .map(JdbcTableSource.class::cast)
-                .filter(table -> table.getTableName().equals("orders"))
-                .findFirst().orElseThrow(() -> new RuntimeException("Orders table not found"));
+        final JdbcTableSource ordersTable = operators.stream().filter(op -> op instanceof JdbcTableSource)
+                .map(JdbcTableSource.class::cast).filter(table -> table.getTableName().equals("orders")).findFirst()
+                .orElseThrow(() -> new RuntimeException("Orders table not found"));
 
-        final JdbcTableSource shipmentsTable = operators.stream()
-                .filter(op -> op instanceof JdbcTableSource)
-                .map(JdbcTableSource.class::cast)
-                .filter(table -> table.getTableName().equals("shipments"))
-                .findFirst().orElseThrow(() -> new RuntimeException("Shipments table not found"));
+        final JdbcTableSource shipmentsTable = operators.stream().filter(op -> op instanceof JdbcTableSource)
+                .map(JdbcTableSource.class::cast).filter(table -> table.getTableName().equals("shipments")).findFirst()
+                .orElseThrow(() -> new RuntimeException("Shipments table not found"));
 
         assertNotNull(ordersTable, "orders table should be present");
         assertNotNull(shipmentsTable, "shipments table should be present");
 
         final org.apache.wayang.basic.operators.JoinOperator<?, ?, ?> joinOp = operators.stream()
                 .filter(op -> op instanceof org.apache.wayang.basic.operators.JoinOperator)
-                .map(op -> (org.apache.wayang.basic.operators.JoinOperator<?, ?, ?>) op)
-                .findFirst().orElseThrow(() -> new RuntimeException("Join operator not found"));
+                .map(op -> (org.apache.wayang.basic.operators.JoinOperator<?, ?, ?>) op).findFirst()
+                .orElseThrow(() -> new RuntimeException("Join operator not found"));
 
         assertNotNull(joinOp, "Join operator should be present");
 
         // Verify the join operator has SQL implementations with correct field names
-        // This validates that WayangMultiConditionJoinVisitor called withSqlImplementation()
+        // This validates that WayangMultiConditionJoinVisitor called
+        // withSqlImplementation()
         final Tuple<String, String> leftSqlImpl = joinOp.getKeyDescriptor0().getSqlImplementation();
         final Tuple<String, String> rightSqlImpl = joinOp.getKeyDescriptor1().getSqlImplementation();
 
@@ -882,15 +979,52 @@ class SqlToWayangRelTest {
         // Verify field names are comma-separated (multi-condition)
         final String leftFields = leftSqlImpl.field1;
         final String rightFields = rightSqlImpl.field1;
-        
+
         assertTrue(leftFields.contains("order_id") && leftFields.contains("customer_id"),
                 "Left SQL implementation should contain both order_id and customer_id, got: " + leftFields);
         assertTrue(rightFields.contains("order_id") && rightFields.contains("customer_id"),
                 "Right SQL implementation should contain both order_id and customer_id, got: " + rightFields);
-        
+
         // Verify comma-separated format
         assertTrue(leftFields.contains(","), "Left fields should be comma-separated for multi-condition join");
         assertTrue(rightFields.contains(","), "Right fields should be comma-separated for multi-condition join");
+    }
+
+    /**
+     * Method for building {@link WayangPlan}s useful for testing, benchmarking and
+     * other usages where you want to handle the intermediate {@link WayangPlan}
+     *
+     * @param sql     sql query string with the {@code ;} cut off
+     * @param udfJars
+     * @return a {@link WayangPlan} of a given sql string
+     * @throws SqlParseException
+     * @throws SQLException
+     */
+    private Tuple2<Collection<Record>, WayangPlan> buildCollectorAndWayangPlan(final SqlContext context,
+            final String sql, final String... udfJars) throws SqlParseException, SQLException {
+        final Properties configProperties = Optimizer.ConfigProperties.getDefaults();
+        final RelDataTypeFactory relDataTypeFactory = new JavaTypeFactoryImpl();
+
+        final Optimizer optimizer = Optimizer.create(SchemaUtils.getSchema(context.getConfiguration()),
+                configProperties, relDataTypeFactory);
+
+        final SqlNode sqlNode = optimizer.parseSql(sql);
+        final SqlNode validatedSqlNode = optimizer.validate(sqlNode);
+        final RelNode relNode = optimizer.convert(validatedSqlNode);
+
+        final RuleSet rules = RuleSets.ofList(CoreRules.FILTER_INTO_JOIN, WayangRules.WAYANG_TABLESCAN_RULE,
+                WayangRules.WAYANG_TABLESCAN_ENUMERABLE_RULE, WayangRules.WAYANG_PROJECT_RULE,
+                WayangRules.WAYANG_FILTER_RULE, WayangRules.WAYANG_JOIN_RULE, WayangRules.WAYANG_AGGREGATE_RULE,
+                WayangRules.WAYANG_SORT_RULE);
+
+        final RelNode wayangRel = optimizer.optimize(relNode, relNode.getTraitSet().plus(WayangConvention.INSTANCE),
+                rules);
+
+        final Collection<Record> collector = new ArrayList<>();
+
+        final WayangPlan wayangPlan = Optimizer.convertWithConfig(wayangRel, context.getConfiguration(), collector);
+
+        return new Tuple2<>(collector, wayangPlan);
     }
 
     private SqlContext createSqlContext(final String tableResourceName)
@@ -913,11 +1047,8 @@ class SqlToWayangRelTest {
                 "Could not get table resource from path: " + tableResourceName);
 
         configuration.setProperty("wayang.fs.table.url", dataPath);
-
         configuration.setProperty("wayang.ml.executions.file", "mle" + ".txt");
-
         configuration.setProperty("wayang.ml.optimizations.file", "mlo" + ".txt");
-
         configuration.setProperty("wayang.ml.experience.enabled", "false");
 
         return new SqlContext(configuration);

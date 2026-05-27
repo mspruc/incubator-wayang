@@ -299,5 +299,4 @@ public interface ExecutionOperator extends ElementaryOperator {
 
         return new Tuple<>(Collections.emptyList(), Collections.emptyList());
     }
-
 }
